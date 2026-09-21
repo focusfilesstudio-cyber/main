@@ -51,29 +51,50 @@ body{
 .bg-grid{
   position:fixed; inset:-20%;
   background-image:
-    linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
   background-size:64px 64px;
   -webkit-mask-image:radial-gradient(ellipse 65% 60% at 52% 45%, #000 0%, transparent 78%);
           mask-image:radial-gradient(ellipse 65% 60% at 52% 45%, #000 0%, transparent 78%);
-  animation:gridDrift 38s linear infinite;
+  animation:gridDrift 38s linear infinite; will-change:transform;
   pointer-events:none; z-index:0;
 }
 @keyframes gridDrift{ to{ transform:translate3d(64px,64px,0) } }
 
-.bg-glow{ position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0 }
+.bg-glow{ position:fixed; border-radius:50%; pointer-events:none; z-index:0; will-change:transform }
 .glow-a{
   width:780px; height:620px; left:14%; top:-16%;
-  background:radial-gradient(circle, rgba(224,168,126,.075), transparent 68%);
+  background:radial-gradient(circle, rgba(224,168,126,.085), rgba(224,168,126,.03) 45%, transparent 72%);
   animation:float1 26s ease-in-out infinite;
 }
 .glow-b{
   width:700px; height:600px; right:6%; bottom:-20%;
-  background:radial-gradient(circle, rgba(120,150,190,.065), transparent 68%);
+  background:radial-gradient(circle, rgba(120,150,190,.075), rgba(120,150,190,.025) 45%, transparent 72%);
   animation:float2 32s ease-in-out infinite;
 }
 @keyframes float1{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(70px,50px)} }
 @keyframes float2{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,-45px)} }
+
+.bg-grain{
+  position:fixed; inset:0; z-index:50; pointer-events:none; opacity:.032;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* slow diagonal light that crosses the grid, then rests */
+.bg-sweep{
+  position:fixed; top:-60%; left:-45%; width:40%; height:220%;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.012) 25%, rgba(255,255,255,.028) 48%,
+              rgba(224,168,126,.022) 58%, rgba(255,255,255,.01) 78%, transparent);
+  pointer-events:none; z-index:1; will-change:transform;
+  animation:lightSweep 21s var(--ease) infinite;
+}
+@keyframes lightSweep{
+  0%   { transform:rotate(12deg) translateX(-30%); opacity:0 }
+  7%   { opacity:1 }
+  40%  { opacity:1 }
+  50%  { transform:rotate(12deg) translateX(360%); opacity:0 }
+  100% { transform:rotate(12deg) translateX(360%); opacity:0 }
+}
 
 .bg-vignette{
   position:fixed; inset:0; pointer-events:none; z-index:1;
@@ -88,8 +109,9 @@ body{
   display:flex; flex-direction:column;
   padding:28px 20px 24px;
   border-right:1px solid var(--line);
-  background:linear-gradient(180deg, rgba(255,255,255,.022), rgba(255,255,255,.008));
-  backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.024), rgba(255,255,255,.008)),
+    rgba(10,12,15,.72);
 }
 
 .brand{ display:flex; align-items:center; gap:12px; padding:0 8px 30px }
@@ -125,6 +147,11 @@ body{
   transition:height .38s var(--ease);
 }
 .nav-item.active .nav-bar{ height:22px }
+.nav-item.keyed .nav-key{ animation:keyFlash .45s var(--ease) }
+@keyframes keyFlash{
+  0%  { background:var(--accent); color:#0a0b0d; transform:scale(1.2) }
+  100%{ transform:scale(1) }
+}
 
 .sidebar-foot{ margin-top:auto; padding:0 10px; display:flex; flex-direction:column; gap:9px }
 .foot-row{ display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--text-3) }
@@ -160,10 +187,10 @@ body{
   position:absolute; inset:0; overflow:hidden;
   opacity:0; visibility:hidden; pointer-events:none;
   transition:opacity .34s var(--ease), transform .34s var(--ease);
-  transform:translateY(10px);
+  transform:translateY(10px) scale(.994);
 }
 .page.active{ opacity:1; visibility:visible; pointer-events:auto; transform:none }
-.page.leaving{ opacity:0; transform:translateY(-10px) }
+.page.leaving{ opacity:0; transform:translateY(-10px) scale(.994) }
 
 .page-inner{
   height:100%; max-width:1180px; margin:0 auto;
@@ -179,17 +206,37 @@ body{
 
 /* ─────────── glass ─────────── */
 .glass{
-  background:linear-gradient(160deg, rgba(255,255,255,.048), rgba(255,255,255,.016));
+  position:relative;
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+    rgba(13,15,19,.74);
   border:1px solid var(--line);
   border-radius:var(--r-lg);
-  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.055), 0 16px 40px rgba(0,0,0,.34);
 }
+
+/* light that tracks the cursor across each panel */
+.glass::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.055), transparent 62%);
+  opacity:0; transition:opacity .4s var(--ease);
+}
+.glass:hover::before{ opacity:1 }
 
 .eyebrow{ color:var(--accent); opacity:.85; margin-bottom:14px }
 
 /* ═══════════ PAGE 1 ═══════════ */
-.hero{ text-align:center }
+.hero{ text-align:center; position:relative; isolation:isolate }
+/* Kept off z-index:-1 — behind the hero it forced the gradient-clipped title
+   to repaint on every frame of the breathe animation. */
+.hero::before{
+  content:""; position:absolute; left:50%; top:46%; width:620px; height:200px;
+  margin:-100px 0 0 -310px; border-radius:50%; pointer-events:none; z-index:0;
+  background:radial-gradient(ellipse, rgba(224,168,126,.11), rgba(224,168,126,.04) 42%, transparent 72%);
+  animation:breathe 7.5s var(--ease) infinite; will-change:transform, opacity;
+}
+.hero > *{ position:relative; z-index:1 }
+@keyframes breathe{ 0%,100%{ opacity:.45; transform:scale(.94) } 50%{ opacity:1; transform:scale(1.06) } }
 .hero-title{
   font-size:60px; font-weight:600; letter-spacing:.055em; line-height:1.05;
   background:linear-gradient(180deg, #ffffff 12%, #b9bdc7 100%);
@@ -237,9 +284,10 @@ body{
 .flow[data-state="done"] .track > i{ background:linear-gradient(90deg, rgba(95,211,160,.4), rgba(95,211,160,.85)); box-shadow:0 0 10px rgba(95,211,160,.3) }
 .flow[data-state="queued"] .track > i{ background:rgba(255,255,255,.18); box-shadow:none }
 
-.track-fill-anim{ position:relative; width:0 }
+/* scaleX is composited; animating width would force a layout pass every frame */
+.track-fill-anim{ position:relative; width:72%; transform:scaleX(0); transform-origin:left center }
 .page.playing .track-fill-anim{ animation:fillUp 5.4s var(--ease) forwards; animation-delay:.7s }
-@keyframes fillUp{ to{ width:72% } }
+@keyframes fillUp{ to{ transform:scaleX(1) } }
 .shimmer{
   position:absolute; inset:0; border-radius:99px;
   background:linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
@@ -284,7 +332,8 @@ body{
   letter-spacing:.01em; text-transform:none; line-height:2.05; color:var(--text-2);
   overflow:hidden;
 }
-.term-line{ display:flex; gap:11px; align-items:baseline }
+.term-line{ display:flex; gap:10px; align-items:baseline }
+.term-ts{ color:#4a505c; font-size:12px; flex:none; letter-spacing:.02em }
 .term-arrow{ color:var(--accent); opacity:.75 }
 .term-line.done .term-text{ color:var(--text) }
 .term-line.ok .term-text{ color:var(--live) }
@@ -324,6 +373,14 @@ body{
 .node.sel text{ fill:#fff }
 .node.sel .node-halo{ opacity:1 }
 .node.hub circle.node-core{ stroke:rgba(224,168,126,.45) }
+.node.hub .node-halo{ opacity:.6 }
+.node-ring{
+  fill:none; stroke:rgba(224,168,126,.45); stroke-width:1.2; pointer-events:none;
+  transform-box:fill-box; transform-origin:center;
+  animation:ping 3.6s var(--ease) infinite;
+}
+@keyframes ping{ 0%{ transform:scale(.7); opacity:.8 } 70%,100%{ transform:scale(1.85); opacity:0 } }
+.node.faded .node-ring{ animation:none; opacity:0 }
 .node.faded{ opacity:.24 }
 .node.faded circle.node-core{ stroke:rgba(255,255,255,.12) }
 
@@ -333,10 +390,16 @@ body{
   position:absolute; bottom:2px; left:50%; transform:translateX(-50%);
   color:#4a505c; font-size:10.5px; letter-spacing:.2em; pointer-events:none;
   transition:opacity .4s var(--ease);
+  animation:hintPulse 3.4s var(--ease) infinite;
 }
+.graph-hint.hidden{ opacity:0; animation:none }
+@keyframes hintPulse{ 0%,100%{ opacity:.5 } 50%{ opacity:1 } }
 
 .note-panel{
   position:absolute; right:40px; top:88px; width:330px;
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+    rgba(11,13,17,.95);
   padding:26px 26px 22px;
   opacity:0; transform:translateX(26px); pointer-events:none;
   transition:opacity .45s var(--ease), transform .45s var(--ease);
@@ -390,6 +453,11 @@ body{
   box-shadow:0 0 36px rgba(95,211,160,.16);
 }
 .status-badge[data-state="live"] .dot{ background:var(--live); animation:pulse 2.4s var(--ease) infinite }
+.status-badge[data-state="live"]{ animation:liveBreathe 4s var(--ease) infinite }
+@keyframes liveBreathe{
+  0%,100%{ box-shadow:0 0 28px rgba(95,211,160,.12) }
+  50%    { box-shadow:0 0 46px rgba(95,211,160,.24) }
+}
 
 .pipeline{ display:flex; align-items:center; justify-content:center; gap:0; padding:8px 0 }
 .pl-step{ display:flex; flex-direction:column; align-items:center; gap:14px; flex:none; width:128px }
@@ -414,6 +482,15 @@ body{
   transition:width .62s var(--ease);
 }
 .pl-link.on > i{ width:100% }
+.pl-link::after{
+  content:""; position:absolute; top:50%; left:0; width:6px; height:6px;
+  margin:-3px 0 0 -3px; border-radius:50%; background:#fff;
+  box-shadow:0 0 10px 3px rgba(224,168,126,.85); opacity:0; pointer-events:none;
+}
+.pl-link.on::after{ animation:linkRun .62s var(--ease) forwards }
+@keyframes linkRun{
+  0%{ left:0; opacity:0 } 18%{ opacity:1 } 82%{ opacity:1 } 100%{ left:100%; opacity:0 }
+}
 
 .check-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; max-width:720px; margin:0 auto; width:100% }
 .check{

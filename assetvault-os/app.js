@@ -18,6 +18,24 @@
   tick();
   setInterval(tick, 1000);
 
+  /* ─────────── cursor spotlight on glass panels ─────────── */
+  /* One delegated listener, one layout read per frame — cheap enough to film over. */
+  let spotQueued = false, spotEv = null;
+  document.addEventListener('pointermove', e => {
+    spotEv = e;
+    if (spotQueued) return;
+    spotQueued = true;
+    requestAnimationFrame(() => {
+      spotQueued = false;
+      const t = spotEv.target;
+      const el = t && t.closest ? t.closest('.glass') : null;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (spotEv.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (spotEv.clientY - r.top) + 'px');
+    });
+  }, { passive: true });
+
   /* ─────────── router ─────────── */
   const TITLES = {
     command: 'Command Center',
@@ -67,7 +85,14 @@
   document.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const i = ['1', '2', '3', '4'].indexOf(e.key);
-    if (i > -1) { e.preventDefault(); go(ORDER[i]); return; }
+    if (i > -1) {
+      e.preventDefault();
+      const btn = $$('.nav-item')[i];                 // flash the key so the press reads on camera
+      btn.classList.remove('keyed'); void btn.offsetWidth; btn.classList.add('keyed');
+      setTimeout(() => btn.classList.remove('keyed'), 460);
+      go(ORDER[i]);
+      return;
+    }
     if (e.key === 'Escape') closeNote();
   });
 
@@ -77,6 +102,7 @@
   const later = (k, fn, ms) => timers[k].push(setTimeout(fn, ms));
 
   function start(name) {
+    if (name === 'command') startCommand();
     if (name === 'content') startContent();
     if (name === 'vault')   startGraph();
     if (name === 'deploy')  startDeploy();
@@ -87,7 +113,27 @@
     if (name === 'deploy')  { clearTimers('deploy'); }
   }
 
-  /* ══════════ PAGE 1 — workflow card clicks ══════════ */
+  /* ══════════ PAGE 1 — counters + workflow card clicks ══════════ */
+  function countUp(el, to, ms) {
+    const t0 = performance.now();
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / ms);
+      const eased = 1 - Math.pow(1 - k, 3);          // ease-out cubic
+      el.textContent = Math.round(to * eased);
+      if (k < 1) requestAnimationFrame(step);
+      else el.textContent = to;
+    })(t0);
+  }
+
+  function startCommand() {
+    $$('#page-command .stat-value[data-count]').forEach((el, i) => {
+      const to = parseInt(el.dataset.count, 10);
+      el.textContent = '0';
+      setTimeout(() => countUp(el, to, 1100), 380 + i * 130);
+    });
+  }
+
+
   $$('#page-command .flow').forEach(card => {
     card.addEventListener('click', () => {
       const on = card.classList.contains('picked');
@@ -104,6 +150,11 @@
     { t: 'Draft ready.',           ok: true  }
   ];
   const termBody = $('#termBody');
+  let termT0 = 0;
+  const stamp = () => {
+    const s = (performance.now() - termT0) / 1000;
+    return '00:' + String(Math.floor(s)).padStart(2, '0') + '.' + Math.floor((s % 1) * 10);
+  };
   const ideas = $$('#page-content .idea');
 
   function typeLine(idx, done) {
@@ -111,7 +162,8 @@
 
     const row = document.createElement('div');
     row.className = 'term-line';
-    row.innerHTML = '<span class="term-arrow">›</span><span class="term-text"></span>';
+    row.innerHTML = '<span class="term-ts">' + stamp() + '</span>' +
+                    '<span class="term-arrow">›</span><span class="term-text"></span>';
     termBody.appendChild(row);
 
     const span = $('.term-text', row);
@@ -138,6 +190,7 @@
 
   function runTerminal() {
     termBody.innerHTML = '';
+    termT0 = performance.now();
     typeLine(0, () => later('content', runTerminal, 2600));
   }
 
@@ -287,7 +340,14 @@
 
       const halo = document.createElementNS(NS, 'circle');
       halo.setAttribute('class', 'node-halo');
-      halo.setAttribute('r', n.r + 16);
+      halo.setAttribute('r', n.r + (n.hub ? 26 : 16));
+
+      let ring = null;
+      if (n.hub) {
+        ring = document.createElementNS(NS, 'circle');
+        ring.setAttribute('class', 'node-ring');
+        ring.setAttribute('r', n.r + 9);
+      }
 
       const core = document.createElementNS(NS, 'circle');
       core.setAttribute('class', 'node-core');
@@ -300,11 +360,13 @@
       const tx = document.createElementNS(NS, 'text');
       tx.textContent = n.label;
 
-      g.appendChild(halo); g.appendChild(core); g.appendChild(hit); g.appendChild(tx);
+      g.appendChild(halo);
+      if (ring) g.appendChild(ring);
+      g.appendChild(core); g.appendChild(hit); g.appendChild(tx);
       g.addEventListener('click', () => selectNode(n.id));
       gNodes.appendChild(g);
 
-      nodeEls[n.id] = { g, halo, core, hit, tx };
+      nodeEls[n.id] = { g, halo, ring, core, hit, tx };
     });
 
     graphBuilt = true;
@@ -324,6 +386,7 @@
 
       const e = nodeEls[n.id];
       e.halo.setAttribute('cx', n.cx); e.halo.setAttribute('cy', n.cy);
+      if (e.ring) { e.ring.setAttribute('cx', n.cx); e.ring.setAttribute('cy', n.cy); }
       e.core.setAttribute('cx', n.cx); e.core.setAttribute('cy', n.cy);
       e.hit.setAttribute('cx', n.cx);  e.hit.setAttribute('cy', n.cy);
       e.tx.setAttribute('x', n.cx);    e.tx.setAttribute('y', n.cy + n.r + 21);
@@ -418,13 +481,13 @@
     $('#noteLinks').textContent  = d.links + ' linked notes';
 
     panel.classList.add('open');
-    graphHint.style.opacity = '0';
+    graphHint.classList.add('hidden');
   }
 
   function closeNote() {
     selected = null;
     panel.classList.remove('open');
-    graphHint.style.opacity = '';
+    graphHint.classList.remove('hidden');
     gZoom.setAttribute('transform', '');
     Object.keys(nodeEls).forEach(k => nodeEls[k].g.classList.remove('sel', 'faded'));
     edgeEls.forEach(e => e.el.classList.remove('lit', 'dim'));
