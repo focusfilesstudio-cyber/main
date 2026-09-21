@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AssetVault OS</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ambient background layers -->
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow glow-a" aria-hidden="true"></div>
+<div class="bg-glow glow-b" aria-hidden="true"></div>
+<div class="bg-vignette" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="currentColor" stroke-width="1.4" opacity=".55"/>
+        <path d="M16 10.5 21.5 21h-11L16 10.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="16" cy="18.4" r="1.7" fill="currentColor"/>
+      </svg>
+      <div class="brand-text">
+        <div class="brand-name">ASSETVAULT</div>
+        <div class="brand-sub">OS</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-page="command">
+        <span class="nav-key">1</span><span class="nav-label">Command</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="content">
+        <span class="nav-key">2</span><span class="nav-label">Content</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="vault">
+        <span class="nav-key">3</span><span class="nav-label">Vault</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="deploy">
+        <span class="nav-key">4</span><span class="nav-label">Deploy</span><span class="nav-bar"></span>
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="foot-row"><span class="dot dot-live"></span><span>LOCAL SESSION</span></div>
+      <div class="foot-hint">Press 1 – 4 to switch</div>
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN ══════════ -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="crumb"><span id="crumbText">Command Center</span></div>
+      <div class="topbar-right">
+        <span class="dot dot-live"></span>
+        <span class="mono">SYSTEMS NOMINAL</span>
+        <span class="divider"></span>
+        <span class="mono" id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <div class="stage">
+
+      <!-- ─────── PAGE 1 : COMMAND CENTER ─────── -->
+      <section class="page active" id="page-command">
+        <div class="page-inner center-col">
+
+          <div class="hero anim" style="--i:0">
+            <div class="eyebrow mono">COMMAND CENTER</div>
+            <h1 class="hero-title">ASSETVAULT OS</h1>
+            <p class="hero-sub">Turn knowledge into digital assets.</p>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat glass anim" style="--i:1">
+              <div class="stat-label mono">PRODUCT</div>
+              <div class="stat-value">AssetVault</div>
+            </div>
+            <div class="stat glass anim" style="--i:2">
+              <div class="stat-label mono">STATUS</div>
+              <div class="stat-value accent-live"><span class="dot dot-live"></span>LIVE</div>
+            </div>
+            <div class="stat glass anim" style="--i:3">
+              <div class="stat-label mono">CONTENT READY</div>
+              <div class="stat-value">12</div>
+            </div>
+            <div class="stat glass anim" style="--i:4">
+              <div class="stat-label mono">ACTIVE SYSTEMS</div>
+              <div class="stat-value">4</div>
+            </div>
+          </div>
+
+          <div class="section-head anim" style="--i:5">
+            <span class="mono">WORKFLOW</span><span class="rule"></span>
+          </div>
+
+          <div class="flow-row">
+            <div class="flow glass anim" style="--i:6" data-state="done">
+              <div class="flow-top">
+                <span class="flow-idx mono">01</span>
+                <span class="chip chip-done"><span class="dot dot-done"></span>COMPLETE</span>
+              </div>
+              <div class="flow-name">Research market</div>
+              <div class="track"><i style="width:100%"></i></div>
+            </div>
+
+            <div class="flow glass anim" style="--i:7" data-state="done">
+              <div class="flow-top">
+                <span class="flow-idx mono">02</span>
+                <span class="chip chip-done"><span class="dot dot-done"></span>COMPLETE</span>
+              </div>
+              <div class="flow-name">Structure knowledge</div>
+              <div class="track"><i style="width:100%"></i></div>
+            </div>
+
+            <div class="flow glass anim is-active" style="--i:8" data-state="active">
+              <div class="flow-top">
+                <span class="flow-idx mono">03</span>
+                <span class="chip chip-active"><span class="dot dot-live"></span>ACTIVE</span>
+              </div>
+              <div class="flow-name">Build product</div>
+              <div class="track"><i class="track-fill-anim"><b class="shimmer"></b></i></div>
+            </div>
+
+            <div class="flow glass anim" style="--i:9" data-state="queued">
+              <div class="flow-top">
+                <span class="flow-idx mono">04</span>
+                <span class="chip chip-queued"><span class="dot dot-idle"></span>QUEUED</span>
+              </div>
+              <div class="flow-name">Distribute content</div>
+              <div class="track"><i style="width:18%"></i></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─────── PAGE 2 : CONTENT ENGINE ─────── -->
+      <section class="page" id="page-content">
+        <div class="page-inner">
+          <div class="head-block anim" style="--i:0">
+            <div class="eyebrow mono">IDEATION</div>
+            <h2 class="page-title">Content Engine</h2>
+          </div>
+
+          <div class="content-grid">
+            <div class="idea-col">
+              <article class="idea glass anim" style="--i:1" data-idx="0">
+                <div class="idea-row">
+                  <span class="field mono">HOOK</span>
+                  <p class="idea-hook">Stop selling your hours. Build an asset instead.</p>
+                </div>
+                <div class="idea-meta">
+                  <div><span class="field mono">FORMAT</span><span class="meta-val">Talking head · 22s</span></div>
+                  <div><span class="field mono">STATUS</span><span class="chip chip-done"><span class="dot dot-done"></span>DRAFT READY</span></div>
+                </div>
+              </article>
+
+              <article class="idea glass anim" style="--i:2" data-idx="1">
+                <div class="idea-row">
+                  <span class="field mono">HOOK</span>
+                  <p class="idea-hook">Your knowledge is worth more packaged than explained.</p>
+                </div>
+                <div class="idea-meta">
+                  <div><span class="field mono">FORMAT</span><span class="meta-val">B-roll + caption · 18s</span></div>
+                  <div><span class="field mono">STATUS</span><span class="chip chip-active"><span class="dot dot-live"></span>STRUCTURING</span></div>
+                </div>
+              </article>
+
+              <article class="idea glass anim" style="--i:3" data-idx="2">
+                <div class="idea-row">
+                  <span class="field mono">HOOK</span>
+                  <p class="idea-hook">Claude + Obsidian = your unfair advantage.</p>
+                </div>
+                <div class="idea-meta">
+                  <div><span class="field mono">FORMAT</span><span class="meta-val">Screen capture · 30s</span></div>
+                  <div><span class="field mono">STATUS</span><span class="chip chip-queued"><span class="dot dot-idle"></span>QUEUED</span></div>
+                </div>
+              </article>
+            </div>
+
+            <aside class="terminal glass anim" style="--i:4">
+              <div class="term-bar">
+                <span class="term-dots"><i></i><i></i><i></i></span>
+                <span class="mono term-title">engine · stream</span>
+              </div>
+              <div class="term-body" id="termBody"></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────── PAGE 3 : VAULT GRAPH ─────── -->
+      <section class="page" id="page-vault">
+        <div class="page-inner vault-inner">
+          <div class="head-block vault-head anim" style="--i:0">
+            <div class="eyebrow mono">KNOWLEDGE GRAPH</div>
+            <h2 class="page-title">Vault</h2>
+          </div>
+
+          <div class="graph-wrap anim" style="--i:1">
+            <svg id="graph" viewBox="-40 -30 980 690" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+                  <feGaussianBlur stdDeviation="6" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <g id="gZoom">
+                <g id="gEdges"></g>
+                <g id="gPulses"></g>
+                <g id="gNodes"></g>
+              </g>
+            </svg>
+
+            <div class="graph-hint mono">CLICK A NODE</div>
+          </div>
+
+          <aside class="note-panel glass" id="notePanel">
+            <button class="note-close" id="noteClose" aria-label="Close">×</button>
+            <div class="note-kicker mono" id="noteKicker">NODE</div>
+            <h3 class="note-title" id="noteTitle">—</h3>
+            <div class="note-tags" id="noteTags"></div>
+            <ul class="note-list" id="noteList"></ul>
+            <div class="note-foot mono"><span class="dot dot-live"></span><span id="noteLinks">0 linked notes</span></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ─────── PAGE 4 : DEPLOY ─────── -->
+      <section class="page" id="page-deploy">
+        <div class="page-inner center-col">
+          <div class="head-block deploy-head anim" style="--i:0">
+            <div class="eyebrow mono">DEPLOYMENT</div>
+            <h2 class="page-title">Product Deployment</h2>
+            <div class="status-badge" id="deployStatus" data-state="building">
+              <span class="dot" id="deployDot"></span><span id="deployStatusText">BUILDING</span>
+            </div>
+          </div>
+
+          <div class="pipeline anim" style="--i:1" id="pipeline">
+            <div class="pl-step" data-step="0"><span class="pl-node"></span><span class="pl-label">Idea</span></div>
+            <div class="pl-link" data-link="0"><i></i></div>
+            <div class="pl-step" data-step="1"><span class="pl-node"></span><span class="pl-label">Structure</span></div>
+            <div class="pl-link" data-link="1"><i></i></div>
+            <div class="pl-step" data-step="2"><span class="pl-node"></span><span class="pl-label">Product</span></div>
+            <div class="pl-link" data-link="2"><i></i></div>
+            <div class="pl-step" data-step="3"><span class="pl-node"></span><span class="pl-label">Storefront</span></div>
+            <div class="pl-link" data-link="3"><i></i></div>
+            <div class="pl-step" data-step="4"><span class="pl-node"></span><span class="pl-label">Distribution</span></div>
+          </div>
+
+          <div class="check-row anim" style="--i:2">
+            <div class="check glass" data-check="0">
+              <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+              <span class="check-name">Landing page</span>
+            </div>
+            <div class="check glass" data-check="1">
+              <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+              <span class="check-name">Product</span>
+            </div>
+            <div class="check glass" data-check="2">
+              <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+              <span class="check-name">Checkout</span>
+            </div>
+            <div class="check glass" data-check="3">
+              <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+              <span class="check-name">Content</span>
+            </div>
+          </div>
+
+          <button class="cta anim" style="--i:3" id="ctaBtn">
+            <span class="cta-glow"></span>
+            <span class="cta-text">OPEN LIVE PRODUCT</span>
+            <svg class="cta-arrow" viewBox="0 0 20 20" fill="none"><path d="M4 10h11M11 5.5 15.5 10 11 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+
+          <button class="replay mono anim" style="--i:4" id="replayBtn">↻ REPLAY SEQUENCE</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
