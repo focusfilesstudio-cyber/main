@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AssetVault OS</title>
+<style>
+/* ══════════════════════════════════════════════
+   AssetVault OS — design system
+   No backdrop-filter, no redundant blur filters:
+   panels use a semi-opaque base, motion uses transform/opacity only.
+   ══════════════════════════════════════════════ */
+
+:root{
+  --bg:#07080a;
+  --panel:rgba(255,255,255,.035);
+  --line:rgba(255,255,255,.07);
+  --line-hi:rgba(255,255,255,.14);
+
+  --text:#e9eaee;
+  --text-2:#9ea3af;
+  --text-3:#676d79;
+  --text-4:#474d58;
+
+  --accent:#e0a87e;
+  --accent-soft:rgba(224,168,126,.13);
+  --accent-line:rgba(224,168,126,.34);
+  --live:#5fd3a0;
+  --live-soft:rgba(95,211,160,.13);
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:44px;
+  --r-lg:16px; --r-md:12px; --r-sm:8px;
+
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Inter,system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0 }
+html,body{ height:100% }
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overflow:hidden; letter-spacing:-.005em;
+}
+button,input,select{ font-family:inherit; font-size:inherit; color:inherit }
+button{ background:none; border:none; cursor:pointer }
+.mono{ font-family:var(--mono); letter-spacing:.09em; font-size:12px; text-transform:uppercase }
+
+kbd{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.04em;
+  padding:2px 6px; border-radius:5px; color:var(--text-3);
+  background:rgba(255,255,255,.06); border:1px solid var(--line);
+}
+
+::-webkit-scrollbar{ width:8px; height:8px }
+::-webkit-scrollbar-track{ background:transparent }
+::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.09); border-radius:99px }
+::-webkit-scrollbar-thumb:hover{ background:rgba(255,255,255,.16) }
+
+/* ─────────── ambient ─────────── */
+.bg-grid{
+  position:fixed; inset:-20%;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(ellipse 65% 60% at 52% 45%,#000 0%,transparent 78%);
+          mask-image:radial-gradient(ellipse 65% 60% at 52% 45%,#000 0%,transparent 78%);
+  animation:gridDrift 38s linear infinite; will-change:transform;
+  pointer-events:none; z-index:0;
+}
+@keyframes gridDrift{ to{ transform:translate3d(64px,64px,0) } }
+
+.bg-glow{ position:fixed; border-radius:50%; pointer-events:none; z-index:0; will-change:transform }
+.glow-a{ width:780px; height:620px; left:14%; top:-16%;
+  background:radial-gradient(circle, rgba(224,168,126,.085), rgba(224,168,126,.03) 45%, transparent 72%);
+  animation:float1 26s ease-in-out infinite; }
+.glow-b{ width:700px; height:600px; right:6%; bottom:-20%;
+  background:radial-gradient(circle, rgba(120,150,190,.075), rgba(120,150,190,.025) 45%, transparent 72%);
+  animation:float2 32s ease-in-out infinite; }
+@keyframes float1{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(70px,50px)} }
+@keyframes float2{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,-45px)} }
+
+.bg-sweep{
+  position:fixed; top:-60%; left:-45%; width:40%; height:220%;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.012) 25%, rgba(255,255,255,.026) 48%,
+              rgba(224,168,126,.02) 58%, rgba(255,255,255,.01) 78%, transparent);
+  pointer-events:none; z-index:1; will-change:transform;
+  animation:lightSweep 21s var(--ease) infinite;
+}
+@keyframes lightSweep{
+  0%{ transform:rotate(12deg) translateX(-30%); opacity:0 } 7%{ opacity:1 }
+  40%{ opacity:1 } 50%,100%{ transform:rotate(12deg) translateX(360%); opacity:0 }
+}
+
+.bg-vignette{ position:fixed; inset:0; pointer-events:none; z-index:1;
+  background:radial-gradient(ellipse 100% 85% at 50% 45%, transparent 42%, rgba(0,0,0,.55) 100%) }
+
+.bg-grain{
+  position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.032;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─────────── shell ─────────── */
+.shell{ position:relative; z-index:2; display:flex; height:100vh }
+
+.sidebar{
+  width:236px; flex:none; display:flex; flex-direction:column;
+  padding:var(--s5) var(--s4) var(--s5);
+  border-right:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(255,255,255,.024), rgba(255,255,255,.008)), rgba(10,12,15,.72);
+}
+.brand{ display:flex; align-items:center; gap:var(--s3); padding:0 var(--s2) var(--s6) }
+.brand-mark{ width:30px; height:30px; color:var(--accent); flex:none }
+.brand-name{ font-size:13px; font-weight:600; letter-spacing:.16em }
+.brand-sub{ font-family:var(--mono); font-size:10px; letter-spacing:.26em; color:var(--text-4); margin-top:2px }
+
+.nav{ display:flex; flex-direction:column; gap:2px }
+.nav-item{
+  position:relative; display:flex; align-items:center; gap:var(--s3);
+  padding:11px var(--s3); border-radius:var(--r-md); color:var(--text-2);
+  font-size:15px; font-weight:450; text-align:left;
+  transition:background .25s var(--ease), color .25s var(--ease), transform .18s var(--ease);
+}
+.nav-item:hover{ background:var(--panel); color:var(--text); transform:translateX(2px) }
+.nav-item.active{ background:rgba(255,255,255,.055); color:var(--text) }
+.nav-label{ flex:1 }
+.nav-key{
+  width:21px; height:21px; flex:none; display:grid; place-items:center;
+  font-family:var(--mono); font-size:10.5px; border-radius:6px;
+  background:rgba(255,255,255,.05); color:var(--text-4);
+  transition:background .25s var(--ease), color .25s var(--ease);
+}
+.nav-item.active .nav-key{ background:var(--accent-soft); color:var(--accent) }
+.nav-count{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.04em; color:var(--text-4);
+  padding:2px 7px; border-radius:99px; background:rgba(255,255,255,.045);
+  transition:color .25s var(--ease), background .25s var(--ease);
+}
+.nav-item.active .nav-count{ color:var(--text-2); background:rgba(255,255,255,.07) }
+.nav-bar{
+  position:absolute; left:-1px; top:50%; width:2px; height:0; border-radius:2px;
+  background:var(--accent); transform:translateY(-50%);
+  box-shadow:0 0 12px rgba(224,168,126,.6); transition:height .34s var(--ease);
+}
+.nav-item.active .nav-bar{ height:20px }
+.nav-item.keyed .nav-key{ animation:keyFlash .45s var(--ease) }
+@keyframes keyFlash{ 0%{ background:var(--accent); color:#0a0b0d; transform:scale(1.2) } 100%{ transform:scale(1) } }
+
+.palette-cue{
+  margin-top:var(--s5); display:flex; align-items:center; justify-content:space-between;
+  gap:var(--s2); padding:10px var(--s3); border-radius:var(--r-md);
+  border:1px solid var(--line); background:rgba(255,255,255,.022);
+  color:var(--text-4); font-size:13.5px;
+  transition:border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
+}
+.palette-cue:hover{ border-color:var(--line-hi); color:var(--text-2); background:rgba(255,255,255,.04) }
+
+.sidebar-foot{ margin-top:auto; padding:0 var(--s2); display:flex; flex-direction:column; gap:var(--s2) }
+.foot-row{ display:flex; align-items:center; gap:var(--s2); font-family:var(--mono);
+  font-size:10.5px; letter-spacing:.12em; color:var(--text-4) }
+.foot-hint{ font-family:var(--mono); font-size:10px; letter-spacing:.05em; color:#3d434d }
+
+/* ─────────── dots ─────────── */
+.dot{ width:7px; height:7px; border-radius:50%; flex:none; display:inline-block; background:var(--text-4) }
+.dot-live{ background:var(--live); animation:pulse 2.4s var(--ease) infinite }
+.dot-done{ background:var(--live); opacity:.75 }
+.dot-warm{ background:var(--accent); animation:pulse2 2.4s var(--ease) infinite }
+.dot-idle{ background:#4a505c }
+@keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(95,211,160,.42)} 70%{box-shadow:0 0 0 7px rgba(95,211,160,0)} 100%{box-shadow:0 0 0 0 rgba(95,211,160,0)} }
+@keyframes pulse2{ 0%{box-shadow:0 0 0 0 rgba(224,168,126,.42)} 70%{box-shadow:0 0 0 7px rgba(224,168,126,0)} 100%{box-shadow:0 0 0 0 rgba(224,168,126,0)} }
+
+/* ─────────── topbar ─────────── */
+.main{ flex:1; min-width:0; display:flex; flex-direction:column }
+.topbar{
+  height:56px; flex:none; display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--s6); border-bottom:1px solid var(--line);
+}
+.crumb{ font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-3) }
+.topbar-right{ display:flex; align-items:center; gap:var(--s4); color:var(--text-3) }
+.topbar-right .mono{ font-size:11.5px; color:var(--text-4) }
+.pill{
+  display:inline-flex; align-items:center; gap:var(--s2);
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em;
+  padding:5px 11px; border-radius:99px; border:1px solid var(--line); color:var(--text-3);
+  transition:color .4s var(--ease), border-color .4s var(--ease), background .4s var(--ease);
+}
+.pill[data-state="live"]{ color:var(--live); border-color:rgba(95,211,160,.26); background:var(--live-soft) }
+.pill[data-state="live"] .dot{ background:var(--live) }
+.pill[data-state="building"] .dot{ background:var(--accent) }
+
+/* ─────────── pages ─────────── */
+.stage{ flex:1; position:relative; min-height:0 }
+.page{
+  position:absolute; inset:0; overflow:hidden;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transform:translateY(10px) scale(.994);
+  transition:opacity .34s var(--ease), transform .34s var(--ease);
+}
+.page.active{ opacity:1; visibility:visible; pointer-events:auto; transform:none }
+.page.leaving{ opacity:0; transform:translateY(-10px) scale(.994) }
+
+.page-inner{ height:100%; max-width:1180px; margin:0 auto;
+  padding:var(--s6) var(--s7) var(--s6); display:flex; flex-direction:column }
+.center-col{ justify-content:center; gap:var(--s5) }
+
+.anim{ opacity:0; transform:translateY(14px) }
+.page.playing .anim{ animation:riseIn .66s var(--ease) forwards; animation-delay:calc(var(--i,0) * 70ms) }
+@keyframes riseIn{ to{ opacity:1; transform:none } }
+
+/* ─────────── glass ─────────── */
+.glass{
+  position:relative;
+  background:linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(13,15,19,.74);
+  border:1px solid var(--line); border-radius:var(--r-lg);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 14px 36px rgba(0,0,0,.32);
+}
+.glass::before{
+  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  background:radial-gradient(300px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.05), transparent 62%);
+  opacity:0; transition:opacity .4s var(--ease);
+}
+.glass:hover::before{ opacity:1 }
+
+.eyebrow{ color:var(--accent); opacity:.82; margin-bottom:var(--s3); font-size:11px }
+
+/* ─────────── buttons ─────────── */
+.btn{
+  display:inline-flex; align-items:center; gap:var(--s2);
+  padding:10px var(--s4); border-radius:var(--r-md); font-size:14.5px; font-weight:500;
+  border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--text-2);
+  transition:border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease), transform .16s var(--ease);
+}
+.btn:hover{ color:var(--text); border-color:var(--line-hi); background:rgba(255,255,255,.07); transform:translateY(-1px) }
+.btn:active{ transform:translateY(0) }
+.btn-primary{ color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft) }
+.btn-primary:hover{ color:#f2c79f; border-color:rgba(224,168,126,.5); background:rgba(224,168,126,.19) }
+.btn-ghost{ background:transparent; border-color:transparent; color:var(--text-4) }
+.btn-sm{ padding:7px var(--s3); font-size:13.5px }
+.btn-plus{ font-size:17px; line-height:1; margin-top:-1px }
+
+/* ═══════════ 1 · COMMAND ═══════════ */
+.hero{ text-align:center; position:relative; isolation:isolate }
+.hero::before{
+  content:""; position:absolute; left:50%; top:46%; width:620px; height:200px;
+  margin:-100px 0 0 -310px; border-radius:50%; pointer-events:none; z-index:0;
+  background:radial-gradient(ellipse, rgba(224,168,126,.11), rgba(224,168,126,.04) 42%, transparent 72%);
+  animation:breathe 7.5s var(--ease) infinite; will-change:transform, opacity;
+}
+.hero > *{ position:relative; z-index:1 }
+@keyframes breathe{ 0%,100%{ opacity:.45; transform:scale(.94) } 50%{ opacity:1; transform:scale(1.06) } }
+
+.hero-title{
+  font-size:58px; font-weight:600; letter-spacing:.055em; line-height:1.05;
+  background:linear-gradient(180deg,#fff 12%,#b9bdc7 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.hero-sub{ margin-top:var(--s4); font-size:18.5px; color:var(--text-2) }
+
+.stat-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s3) }
+.stat{ padding:var(--s4) var(--s5) }
+.stat-label{ color:var(--text-4); font-size:10.5px; margin-bottom:10px }
+.stat-value{ font-size:25px; font-weight:550; letter-spacing:-.015em; display:flex; align-items:center; gap:var(--s2) }
+.accent-live{ color:var(--live) }
+.accent-warm{ color:var(--accent) }
+
+.section-head{ display:flex; align-items:center; gap:var(--s4); color:var(--text-4) }
+.section-head .mono{ font-size:10.5px }
+.rule{ flex:1; height:1px; background:linear-gradient(90deg,var(--line-hi),transparent) }
+.section-note{ color:var(--text-4) }
+
+.flow-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s3) }
+.flow{
+  padding:var(--s4) var(--s5) var(--s5); text-align:left; display:block; width:100%;
+  transition:border-color .3s var(--ease), transform .25s var(--ease), box-shadow .3s var(--ease);
+}
+.flow:hover{ transform:translateY(-3px); border-color:var(--line-hi) }
+.flow[data-state="active"]{ border-color:var(--accent-line) }
+.flow-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--s4) }
+.flow-idx{ color:var(--text-4); font-size:11px }
+.flow-name{ font-size:17px; font-weight:500; letter-spacing:-.01em }
+.flow-meta{ font-size:10.5px; color:var(--text-4); margin:6px 0 var(--s4) }
+
+.chip{
+  display:inline-flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+  padding:5px 9px; border-radius:99px; border:1px solid var(--line); color:var(--text-3);
+}
+.chip-done{ color:var(--live); background:var(--live-soft); border-color:rgba(95,211,160,.2) }
+.chip-active{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent-line) }
+.chip-queued{ background:rgba(255,255,255,.03) }
+
+.track{ height:3px; border-radius:99px; background:rgba(255,255,255,.06); overflow:hidden }
+.track > i{
+  display:block; height:100%; border-radius:99px; width:var(--pct,0%);
+  transform:scaleX(0); transform-origin:left center;
+  background:linear-gradient(90deg, rgba(224,168,126,.5), var(--accent));
+}
+.page.playing .track > i{ animation:fillUp 1.1s var(--ease) forwards; animation-delay:.45s }
+@keyframes fillUp{ to{ transform:scaleX(1) } }
+.flow[data-state="done"] .track > i{ background:linear-gradient(90deg, rgba(95,211,160,.4), rgba(95,211,160,.85)) }
+.flow[data-state="queued"] .track > i{ background:rgba(255,255,255,.16) }
+
+/* ═══════════ 2 · CONTENT ═══════════ */
+.head-row{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:var(--s5) }
+.head-block{ margin-bottom:var(--s5) }
+.page-title{ font-size:38px; font-weight:600; letter-spacing:-.022em }
+
+.content-grid{ display:grid; grid-template-columns:1fr 340px; gap:var(--s4); flex:1; min-height:0; align-items:center }
+.idea-col{ display:flex; flex-direction:column; gap:var(--s3); max-height:100%; overflow-y:auto; padding-right:var(--s1) }
+
+.composer{ padding:var(--s4) var(--s4) var(--s3); flex:none }
+.composer-hook{
+  width:100%; background:transparent; border:none; outline:none;
+  font-size:19px; font-weight:500; letter-spacing:-.015em; padding:var(--s1) 0 var(--s3);
+}
+.composer-hook::placeholder{ color:var(--text-4) }
+.composer-row{ display:flex; align-items:center; gap:var(--s2); padding-top:var(--s3); border-top:1px solid var(--line) }
+.composer-format, .composer-node{
+  background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:var(--r-sm);
+  padding:7px 10px; font-size:13.5px; color:var(--text-2); outline:none;
+}
+.composer-format{ flex:1; min-width:0 }
+.composer-format:focus, .composer-node:focus{ border-color:var(--accent-line) }
+.composer-node{ cursor:pointer }
+.composer-node option{ background:#12151b }
+
+.idea{
+  padding:var(--s4) var(--s5); flex:none;
+  transition:border-color .3s var(--ease), transform .25s var(--ease), box-shadow .3s var(--ease);
+}
+.idea:hover{ transform:translateY(-2px); border-color:var(--line-hi) }
+.idea.hot{
+  border-color:var(--accent-line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 0 40px rgba(224,168,126,.14), 0 14px 36px rgba(0,0,0,.32);
+}
+.idea-hook{ font-size:19px; font-weight:500; line-height:1.38; letter-spacing:-.015em }
+.idea-meta{
+  display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap;
+  margin-top:var(--s3); padding-top:var(--s3); border-top:1px solid var(--line);
+}
+.meta-val{ font-size:13.5px; color:var(--text-3); flex:1; min-width:0 }
+.node-chip{
+  font-family:var(--mono); font-size:10px; letter-spacing:.07em; color:var(--text-3);
+  padding:5px 9px; border-radius:99px; background:rgba(255,255,255,.04); border:1px solid var(--line);
+  transition:color .22s var(--ease), border-color .22s var(--ease);
+}
+.node-chip:hover{ color:var(--accent); border-color:var(--accent-line) }
+button.chip{ transition:filter .22s var(--ease) }
+button.chip:hover{ filter:brightness(1.35) }
+.idea-del{
+  width:24px; height:24px; border-radius:6px; color:var(--text-4); font-size:16px; line-height:1;
+  opacity:0; transition:opacity .22s var(--ease), color .22s var(--ease), background .22s var(--ease);
+}
+.idea:hover .idea-del{ opacity:1 }
+.idea-del:hover{ color:#e8907e; background:rgba(232,144,126,.1) }
+
+.empty{ color:var(--text-4); font-size:14.5px; padding:var(--s5); text-align:center }
+
+.terminal{ display:flex; flex-direction:column; overflow:hidden; align-self:center; height:min(430px, 100%) }
+.term-bar{ display:flex; align-items:center; gap:var(--s3); padding:var(--s3) var(--s4);
+  border-bottom:1px solid var(--line); background:rgba(255,255,255,.018); flex:none }
+.term-dots{ display:flex; gap:5px }
+.term-dots i{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.12) }
+.term-title{ color:var(--text-4); font-size:10.5px; letter-spacing:.12em }
+.term-body{
+  flex:1; padding:var(--s4); font-family:var(--mono); font-size:13px;
+  letter-spacing:.01em; text-transform:none; line-height:1.9; color:var(--text-2);
+  overflow-y:auto; min-height:0;
+}
+.term-line{ display:flex; gap:9px; align-items:baseline }
+.term-ts{ color:var(--text-4); font-size:11px; flex:none }
+.term-arrow{ color:var(--accent); opacity:.7; flex:none }
+.term-text{ word-break:break-word }
+.term-line.ok .term-text{ color:var(--live) }
+.term-line.warn .term-text{ color:#e0a87e }
+.caret{ display:inline-block; width:7px; height:14px; background:var(--accent);
+  margin-left:3px; vertical-align:-2px; animation:blink 1.05s steps(1) infinite }
+@keyframes blink{ 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+/* ═══════════ 3 · VAULT ═══════════ */
+.vault-inner{ padding:var(--s5) var(--s7); position:relative }
+.vault-head{ position:absolute; top:var(--s5); left:var(--s7); z-index:3; margin-bottom:0 }
+.graph-wrap{ flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center }
+#graph{ width:100%; height:100%; overflow:visible }
+#gZoom{ transition:transform 1.05s var(--ease) }
+
+.edge{ stroke:rgba(255,255,255,.11); stroke-width:1.1; transition:stroke .5s var(--ease), stroke-width .5s var(--ease) }
+.edge.lit{ stroke:var(--accent-line); stroke-width:1.5 }
+.edge.dim{ stroke:rgba(255,255,255,.04) }
+
+.node{ cursor:pointer }
+.node-halo{ fill:rgba(224,168,126,.055); opacity:0; transition:opacity .5s var(--ease) }
+.node circle.node-core{ fill:#12151b; stroke:rgba(255,255,255,.22); stroke-width:1.2;
+  transition:stroke .45s var(--ease), fill .45s var(--ease) }
+.node text{ fill:var(--text-2); font-family:var(--sans); font-size:15px; font-weight:500;
+  text-anchor:middle; letter-spacing:-.01em; pointer-events:none; transition:fill .45s var(--ease) }
+.node-count{ font-family:var(--mono) !important; font-size:12px !important; fill:var(--text-3) !important; font-weight:400 !important }
+.node:hover circle.node-core{ stroke:rgba(224,168,126,.6); fill:#191d25 }
+.node:hover text{ fill:var(--text) }
+.node:hover .node-halo{ opacity:1 }
+.node.sel circle.node-core{ stroke:var(--accent); fill:#1d1a17 }
+.node.sel text{ fill:#fff }
+.node.sel .node-halo{ opacity:1 }
+.node.hub circle.node-core{ stroke:rgba(224,168,126,.45) }
+.node.hub .node-halo{ opacity:.6 }
+.node.empty .node-count{ opacity:0 }
+.node.faded{ opacity:.22 }
+.node.faded circle.node-core{ stroke:rgba(255,255,255,.12) }
+.node-ring{ fill:none; stroke:rgba(224,168,126,.45); stroke-width:1.2; pointer-events:none;
+  transform-box:fill-box; transform-origin:center; animation:ping 3.6s var(--ease) infinite }
+@keyframes ping{ 0%{ transform:scale(.7); opacity:.8 } 70%,100%{ transform:scale(1.85); opacity:0 } }
+.node.faded .node-ring{ animation:none; opacity:0 }
+.pulse-dot{ fill:var(--accent); filter:url(#soft) }
+
+.graph-hint{
+  position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+  color:var(--text-4); font-size:10px; letter-spacing:.2em; pointer-events:none;
+  transition:opacity .4s var(--ease); animation:hintPulse 3.4s var(--ease) infinite;
+}
+.graph-hint.hidden{ opacity:0; animation:none }
+@keyframes hintPulse{ 0%,100%{ opacity:.5 } 50%{ opacity:1 } }
+
+.note-panel{
+  position:absolute; right:var(--s7); top:76px; width:336px; max-height:calc(100% - 100px);
+  display:flex; flex-direction:column; padding:var(--s5) var(--s5) var(--s4);
+  background:linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(11,13,17,.95);
+  opacity:0; transform:translateX(24px); pointer-events:none;
+  transition:opacity .4s var(--ease), transform .4s var(--ease);
+}
+.note-panel.open{ opacity:1; transform:none; pointer-events:auto }
+.note-close{ position:absolute; top:14px; right:16px; width:26px; height:26px;
+  border:1px solid var(--line); border-radius:7px; color:var(--text-4); font-size:16px; line-height:1;
+  transition:color .22s, border-color .22s, background .22s }
+.note-close:hover{ color:var(--text); border-color:var(--line-hi); background:var(--panel) }
+.note-kicker{ color:var(--accent); font-size:10px; margin-bottom:7px }
+.note-title{ font-size:23px; font-weight:600; letter-spacing:-.022em; margin-bottom:var(--s3) }
+.note-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:var(--s4) }
+.note-tag{ font-family:var(--mono); font-size:10px; letter-spacing:.06em; color:var(--text-3);
+  padding:3px 8px; border-radius:6px; background:rgba(255,255,255,.05); border:1px solid var(--line) }
+
+.panel-scroll{ overflow-y:auto; min-height:0; margin:0 calc(var(--s5) * -1); padding:0 var(--s5) }
+.panel-sec{ padding-top:var(--s4); margin-top:var(--s4); border-top:1px solid var(--line) }
+.panel-sec:first-child{ padding-top:0; margin-top:0; border-top:none }
+.panel-lab{ color:var(--text-4); font-size:9.5px; margin-bottom:var(--s3); display:flex; gap:7px }
+.panel-lab span{ color:var(--text-3) }
+
+.note-list{ list-style:none; display:flex; flex-direction:column; gap:10px }
+.note-list li{ font-size:14px; line-height:1.5; color:var(--text-2);
+  padding-left:14px; padding-right:20px; position:relative }
+.note-list li::before{ content:""; position:absolute; left:0; top:8px; width:4px; height:4px;
+  border-radius:50%; background:var(--accent); opacity:.55 }
+.note-list li.muted{ color:var(--text-4) } .note-list li.muted::before{ opacity:.2 }
+.note-del{ position:absolute; right:0; top:-2px; width:20px; height:20px; border-radius:5px;
+  color:var(--text-4); font-size:14px; line-height:1; opacity:0; transition:opacity .2s, color .2s }
+.note-list li:hover .note-del{ opacity:1 }
+.note-del:hover{ color:#e8907e }
+
+.note-add{ display:flex; gap:6px; margin-top:var(--s3) }
+.note-add input{
+  flex:1; min-width:0; background:rgba(255,255,255,.04); border:1px solid var(--line);
+  border-radius:var(--r-sm); padding:8px 10px; font-size:13.5px; color:var(--text); outline:none;
+}
+.note-add input::placeholder{ color:var(--text-4) }
+.note-add input:focus{ border-color:var(--accent-line) }
+.note-add button{ width:34px; border:1px solid var(--line); border-radius:var(--r-sm);
+  color:var(--text-3); transition:color .22s, border-color .22s, background .22s }
+.note-add button:hover{ color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft) }
+
+.link-row{
+  display:flex; align-items:center; gap:var(--s2); width:100%; text-align:left;
+  padding:8px 10px; border-radius:var(--r-sm); margin-bottom:4px;
+  background:rgba(255,255,255,.028); border:1px solid transparent;
+  transition:background .22s var(--ease), border-color .22s var(--ease);
+}
+.link-row:hover{ background:rgba(255,255,255,.06); border-color:var(--line) }
+.link-text{ font-size:13.5px; color:var(--text-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.tick{ width:14px; height:14px; flex:none; border-radius:4px; border:1px solid var(--line-hi); position:relative }
+.tick.on{ background:var(--live-soft); border-color:rgba(95,211,160,.45) }
+.tick.on::after{ content:""; position:absolute; left:4px; top:1px; width:4px; height:8px;
+  border:solid var(--live); border-width:0 1.6px 1.6px 0; transform:rotate(42deg) }
+
+/* ═══════════ 4 · DEPLOY ═══════════ */
+.deploy-head{ text-align:center; margin-bottom:0 }
+.status-badge{
+  display:inline-flex; align-items:center; gap:var(--s2); margin-top:var(--s4);
+  padding:8px var(--s4); border-radius:99px;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.17em;
+  border:1px solid var(--line); background:rgba(255,255,255,.035); color:var(--text-2);
+  transition:color .5s var(--ease), border-color .5s var(--ease), background .5s var(--ease);
+}
+.status-badge .dot{ background:var(--text-4) }
+.status-badge[data-state="building"] .dot{ animation:blinkDot 1s steps(1) infinite }
+@keyframes blinkDot{ 0%,49%{opacity:1} 50%,100%{opacity:.25} }
+.status-badge[data-state="ready"]{ color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft) }
+.status-badge[data-state="ready"] .dot{ background:var(--accent); animation:none }
+.status-badge[data-state="live"]{ color:var(--live); border-color:rgba(95,211,160,.3); background:var(--live-soft);
+  animation:liveBreathe 4s var(--ease) infinite }
+.status-badge[data-state="live"] .dot{ background:var(--live); animation:pulse 2.4s var(--ease) infinite }
+@keyframes liveBreathe{ 0%,100%{ box-shadow:0 0 26px rgba(95,211,160,.12) } 50%{ box-shadow:0 0 44px rgba(95,211,160,.24) } }
+
+.pipeline{ display:flex; align-items:center; justify-content:center }
+.pl-step{ display:flex; flex-direction:column; align-items:center; gap:var(--s3); flex:none; width:124px }
+.pl-node{ width:16px; height:16px; border-radius:50%; background:#13161c; border:1.5px solid rgba(255,255,255,.16);
+  transition:background .55s var(--ease), border-color .55s var(--ease), box-shadow .55s var(--ease), transform .55s var(--ease) }
+.pl-label{ font-size:15px; color:var(--text-4); transition:color .55s var(--ease) }
+.pl-step.on .pl-node{ background:var(--accent); border-color:var(--accent);
+  box-shadow:0 0 0 5px rgba(224,168,126,.11), 0 0 22px rgba(224,168,126,.5); transform:scale(1.12) }
+.pl-step.on .pl-label{ color:var(--text) }
+.pl-link{ flex:1; max-width:108px; height:1.5px; background:rgba(255,255,255,.09);
+  position:relative; margin-bottom:30px; border-radius:2px }
+.pl-link > i{ position:absolute; inset:0; width:0; border-radius:2px;
+  background:linear-gradient(90deg, rgba(224,168,126,.5), var(--accent));
+  box-shadow:0 0 10px rgba(224,168,126,.45); transition:width .62s var(--ease) }
+.pl-link.on > i{ width:100% }
+.pl-link::after{ content:""; position:absolute; top:50%; left:0; width:6px; height:6px;
+  margin:-3px 0 0 -3px; border-radius:50%; background:#fff;
+  box-shadow:0 0 10px 3px rgba(224,168,126,.8); opacity:0; pointer-events:none }
+.pl-link.on::after{ animation:linkRun .62s var(--ease) forwards }
+@keyframes linkRun{ 0%{left:0;opacity:0} 18%{opacity:1} 82%{opacity:1} 100%{left:100%;opacity:0} }
+
+.check-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:var(--s3); max-width:700px; margin:0 auto; width:100% }
+.check{ display:flex; align-items:center; gap:10px; padding:var(--s4);
+  transition:border-color .5s var(--ease), box-shadow .5s var(--ease), transform .2s var(--ease) }
+.check:hover{ transform:translateY(-2px); border-color:var(--line-hi) }
+.check.on{ border-color:rgba(95,211,160,.22) }
+.check-name{ font-size:15px; color:var(--text-3); white-space:nowrap; transition:color .5s var(--ease) }
+.check.on .check-name{ color:var(--text) }
+.check-mark{ width:21px; height:21px; flex:none; border-radius:50%; display:grid; place-items:center;
+  background:rgba(255,255,255,.04); border:1px solid var(--line);
+  transition:background .45s var(--ease), border-color .45s var(--ease), transform .45s var(--ease) }
+.check-mark svg{ width:12px; height:12px; fill:none; stroke:var(--live); stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:18; stroke-dashoffset:18;
+  transition:stroke-dashoffset .5s var(--ease) }
+.check.on .check-mark{ background:var(--live-soft); border-color:rgba(95,211,160,.3); transform:scale(1.06) }
+.check.on .check-mark svg{ stroke-dashoffset:0 }
+
+.cta-wrap{ display:flex; flex-direction:column; align-items:center; gap:var(--s3) }
+.cta{
+  position:relative; display:inline-flex; align-items:center; gap:var(--s3);
+  padding:17px var(--s7); border-radius:var(--r-md); overflow:hidden;
+  font-size:15.5px; font-weight:600; letter-spacing:.13em; color:var(--text-4);
+  background:linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+  border:1px solid var(--line); cursor:not-allowed;
+  transition:color .6s var(--ease), border-color .6s var(--ease), transform .2s var(--ease), box-shadow .6s var(--ease);
+}
+.cta-arrow{ width:19px; height:19px; transition:transform .3s var(--ease) }
+.cta-glow{ position:absolute; inset:0; opacity:0; transition:opacity .7s var(--ease);
+  background:radial-gradient(ellipse 70% 180% at 50% 120%, rgba(224,168,126,.3), transparent 70%) }
+.cta.armed{ color:var(--text); border-color:var(--accent-line); cursor:pointer;
+  box-shadow:0 0 40px rgba(224,168,126,.17), inset 0 1px 0 rgba(255,255,255,.08) }
+.cta.armed .cta-glow{ opacity:1 }
+.cta.armed:hover{ transform:translateY(-2px); box-shadow:0 0 60px rgba(224,168,126,.27), inset 0 1px 0 rgba(255,255,255,.1) }
+.cta.armed:hover .cta-arrow{ transform:translateX(4px) }
+
+.url-field{
+  width:340px; text-align:center; background:transparent; border:none; outline:none;
+  border-bottom:1px solid var(--line); padding:6px 0; font-size:13px;
+  font-family:var(--mono); letter-spacing:.02em; color:var(--text-3);
+  transition:border-color .25s var(--ease), color .25s var(--ease);
+}
+.url-field::placeholder{ color:#3d434d }
+.url-field:focus{ border-color:var(--accent-line); color:var(--text) }
+
+/* ═══════════ COMMAND PALETTE ═══════════ */
+/* an author display value beats the UA [hidden] rule — without this the
+   invisible scrim keeps covering the page and eats every click */
+.palette-scrim[hidden]{ display:none }
+.palette-scrim{
+  position:fixed; inset:0; z-index:70; display:flex; justify-content:center; align-items:flex-start;
+  padding-top:14vh; background:rgba(4,5,7,.6);
+  opacity:0; transition:opacity .2s var(--ease);
+}
+.palette-scrim.in{ opacity:1 }
+.palette{
+  width:620px; max-width:90vw; max-height:62vh; display:flex; flex-direction:column; overflow:hidden;
+  background:linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(12,14,18,.97);
+  box-shadow:0 30px 90px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+  transform:translateY(-12px) scale(.985); transition:transform .24s var(--ease);
+}
+.palette-scrim.in .palette{ transform:none }
+.palette-top{ display:flex; align-items:center; gap:var(--s3); padding:var(--s4) var(--s5);
+  border-bottom:1px solid var(--line); flex:none }
+.palette-icon{ color:var(--accent); font-size:15px; opacity:.8 }
+.palette-top input{ flex:1; background:transparent; border:none; outline:none; font-size:17px; letter-spacing:-.01em }
+.palette-top input::placeholder{ color:var(--text-4) }
+.palette-results{ overflow-y:auto; padding:var(--s2); min-height:0 }
+.pal-row{
+  display:flex; align-items:center; gap:var(--s3); width:100%; text-align:left;
+  padding:10px var(--s3); border-radius:var(--r-sm); border:1px solid transparent;
+}
+.pal-row.sel{ background:rgba(255,255,255,.06); border-color:var(--line) }
+.pal-grp{ font-size:9.5px; color:var(--text-4); width:58px; flex:none }
+.pal-row.sel .pal-grp{ color:var(--accent) }
+.pal-label{ flex:1; min-width:0; font-size:14.5px; color:var(--text-2);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.pal-row.sel .pal-label{ color:var(--text) }
+.pal-hint{ font-size:10px; color:var(--text-4); flex:none }
+.pal-none{ padding:var(--s5); text-align:center; color:var(--text-4); font-size:14px }
+.palette-foot{ display:flex; gap:var(--s4); padding:10px var(--s5); border-top:1px solid var(--line);
+  font-size:9.5px; color:var(--text-4); flex:none }
+.palette-foot span:last-child{ margin-left:auto }
+
+/* ─────────── shorter laptops ─────────── */
+@media (max-height:820px){
+  .hero-title{ font-size:48px }
+  .hero-sub{ font-size:17px; margin-top:var(--s3) }
+  .page-inner{ padding:var(--s5) var(--s7) }
+  .center-col{ gap:var(--s4) }
+  .stat{ padding:var(--s3) var(--s4) }
+  .stat-value{ font-size:22px }
+  .page-title{ font-size:33px }
+  .flow{ padding:var(--s3) var(--s4) var(--s4) }
+}
+@media (max-width:1280px){
+  .content-grid{ grid-template-columns:1fr 310px }
+  .note-panel{ width:306px }
+}
+
+</style>
+</head>
+<body>
+
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-glow glow-a" aria-hidden="true"></div>
+<div class="bg-glow glow-b" aria-hidden="true"></div>
+<div class="bg-sweep" aria-hidden="true"></div>
+<div class="bg-vignette" aria-hidden="true"></div>
+<div class="bg-grain" aria-hidden="true"></div>
+
+<div class="shell">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="4.5" y="4.5" width="23" height="23" rx="6" stroke="currentColor" stroke-width="1.4" opacity=".5"/>
+        <path d="M16 10.5 21.5 21h-11L16 10.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="16" cy="18.4" r="1.7" fill="currentColor"/>
+      </svg>
+      <div class="brand-text">
+        <div class="brand-name" id="brandName">ASSETVAULT</div>
+        <div class="brand-sub">OS</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-page="command">
+        <span class="nav-key">1</span><span class="nav-label">Command</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="content">
+        <span class="nav-key">2</span><span class="nav-label">Content</span>
+        <span class="nav-count" id="navCountContent">0</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="vault">
+        <span class="nav-key">3</span><span class="nav-label">Vault</span>
+        <span class="nav-count" id="navCountVault">0</span><span class="nav-bar"></span>
+      </button>
+      <button class="nav-item" data-page="deploy">
+        <span class="nav-key">4</span><span class="nav-label">Deploy</span>
+        <span class="nav-count" id="navCountDeploy">0</span><span class="nav-bar"></span>
+      </button>
+    </nav>
+
+    <button class="palette-cue" id="paletteCue">
+      <span>Search or jump…</span><kbd>⌘K</kbd>
+    </button>
+
+    <div class="sidebar-foot">
+      <div class="foot-row"><span class="dot dot-live"></span><span id="storageState">SAVED LOCALLY</span></div>
+      <div class="foot-hint">1–4 pages · N new idea · ⌘K</div>
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN ══════════ -->
+  <main class="main">
+
+    <header class="topbar">
+      <div class="crumb"><span id="crumbText">Command</span></div>
+      <div class="topbar-right">
+        <span class="pill" id="stagePill"><span class="dot"></span><span id="stageText">BUILDING</span></span>
+        <span class="mono" id="clock">--:--:--</span>
+      </div>
+    </header>
+
+    <div class="stage">
+
+      <!-- ─────── 1 · COMMAND ─────── -->
+      <section class="page active" id="page-command">
+        <div class="page-inner center-col">
+
+          <div class="hero anim" style="--i:0">
+            <div class="eyebrow mono">COMMAND CENTER</div>
+            <h1 class="hero-title">ASSETVAULT OS</h1>
+            <p class="hero-sub">Turn knowledge into digital assets.</p>
+          </div>
+
+          <div class="stat-row" id="statRow"></div>
+
+          <div class="section-head anim" style="--i:5">
+            <span class="mono">WORKFLOW</span><span class="rule"></span>
+            <span class="mono section-note" id="workflowNote"></span>
+          </div>
+
+          <div class="flow-row" id="flowRow"></div>
+        </div>
+      </section>
+
+      <!-- ─────── 2 · CONTENT ─────── -->
+      <section class="page" id="page-content">
+        <div class="page-inner">
+          <div class="head-row anim" style="--i:0">
+            <div>
+              <div class="eyebrow mono">IDEATION</div>
+              <h2 class="page-title">Content Engine</h2>
+            </div>
+            <button class="btn btn-primary" id="newIdeaBtn">
+              <span class="btn-plus">+</span> New idea <kbd>N</kbd>
+            </button>
+          </div>
+
+          <div class="content-grid">
+            <div class="idea-col">
+              <form class="composer glass" id="composer" hidden>
+                <input class="composer-hook" id="composerHook" placeholder="Write the hook…" autocomplete="off" />
+                <div class="composer-row">
+                  <input class="composer-format" id="composerFormat" placeholder="Format · length" autocomplete="off" />
+                  <select class="composer-node" id="composerNode"></select>
+                  <button type="submit" class="btn btn-primary btn-sm">Capture</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="composerCancel">Cancel</button>
+                </div>
+              </form>
+
+              <div id="ideaList"></div>
+              <div class="empty" id="ideaEmpty" hidden>No ideas captured yet. Press <kbd>N</kbd> to add the first.</div>
+            </div>
+
+            <aside class="terminal glass anim" style="--i:4">
+              <div class="term-bar">
+                <span class="term-dots"><i></i><i></i><i></i></span>
+                <span class="mono term-title">activity · live</span>
+              </div>
+              <div class="term-body" id="termBody"></div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────── 3 · VAULT ─────── -->
+      <section class="page" id="page-vault">
+        <div class="page-inner vault-inner">
+          <div class="head-block vault-head anim" style="--i:0">
+            <div class="eyebrow mono">KNOWLEDGE GRAPH</div>
+            <h2 class="page-title">Vault</h2>
+          </div>
+
+          <div class="graph-wrap anim" style="--i:1">
+            <svg id="graph" viewBox="-40 -30 980 690" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+                  <feGaussianBlur stdDeviation="6" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <g id="gZoom">
+                <g id="gEdges"></g><g id="gPulses"></g><g id="gNodes"></g>
+              </g>
+            </svg>
+            <div class="graph-hint mono">CLICK A NODE</div>
+          </div>
+
+          <aside class="note-panel glass" id="notePanel">
+            <button class="note-close" id="noteClose" aria-label="Close">×</button>
+            <div class="note-kicker mono" id="noteKicker">NODE</div>
+            <h3 class="note-title" id="noteTitle">—</h3>
+            <div class="note-tags" id="noteTags"></div>
+
+            <div class="panel-scroll">
+              <div class="panel-sec">
+                <div class="panel-lab mono">NOTES <span id="noteCount"></span></div>
+                <ul class="note-list" id="noteList"></ul>
+                <form class="note-add" id="noteForm">
+                  <input id="noteInput" placeholder="Add a note…" autocomplete="off" />
+                  <button type="submit" aria-label="Add">↵</button>
+                </form>
+              </div>
+
+              <div class="panel-sec" id="linkedIdeasSec">
+                <div class="panel-lab mono">LINKED CONTENT <span id="linkedCount"></span></div>
+                <div id="linkedIdeas"></div>
+              </div>
+
+              <div class="panel-sec" id="linkedDeploySec">
+                <div class="panel-lab mono">DEPLOY</div>
+                <div id="linkedDeploy"></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ─────── 4 · DEPLOY ─────── -->
+      <section class="page" id="page-deploy">
+        <div class="page-inner center-col">
+          <div class="head-block deploy-head anim" style="--i:0">
+            <div class="eyebrow mono">DEPLOYMENT</div>
+            <h2 class="page-title">Product Deployment</h2>
+            <div class="status-badge" id="deployStatus" data-state="building">
+              <span class="dot"></span><span id="deployStatusText">BUILDING</span>
+            </div>
+          </div>
+
+          <div class="pipeline anim" style="--i:1" id="pipeline"></div>
+
+          <div class="check-row anim" style="--i:2" id="checkRow"></div>
+
+          <div class="cta-wrap anim" style="--i:3">
+            <button class="cta" id="ctaBtn">
+              <span class="cta-glow"></span>
+              <span class="cta-text">OPEN LIVE PRODUCT</span>
+              <svg class="cta-arrow" viewBox="0 0 20 20" fill="none"><path d="M4 10h11M11 5.5 15.5 10 11 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <input class="url-field" id="urlField" placeholder="https:// your product link" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ COMMAND PALETTE ══════════ -->
+<div class="palette-scrim" id="paletteScrim" hidden>
+  <div class="palette glass" role="dialog" aria-label="Command palette">
+    <div class="palette-top">
+      <span class="palette-icon">⌘</span>
+      <input id="paletteInput" placeholder="Jump to a node, idea, page or action…" autocomplete="off" spellcheck="false" />
+      <kbd>ESC</kbd>
+    </div>
+    <div class="palette-results" id="paletteResults"></div>
+    <div class="palette-foot mono"><span>↑↓ navigate</span><span>↵ select</span><span id="paletteCountLab"></span></div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   AssetVault OS — single source of truth.
+   Every screen reads from here; nothing holds its own copy.
+   Persists to localStorage, falls back to memory if unavailable
+   (Safari blocks storage on file:// origins).
+   ══════════════════════════════════════════════ */
+(function (global) {
+  'use strict';
+
+  const KEY = 'assetvault.os.v1';
+
+  /* ─────────── the vault skeleton: fixed nodes, user-owned notes ─────────── */
+  const NODES = [
+    { id: 'product',      label: 'Product',      kind: 'CORE',      x: 450, y: 310, r: 26, hub: true, tags: ['hub','asset'] },
+    { id: 'audience',     label: 'Audience',     kind: 'INPUT',     x: 234, y: 231, r: 20, tags: ['research'] },
+    { id: 'research',     label: 'Research',     kind: 'INPUT',     x: 371, y:  94, r: 18, tags: ['market'] },
+    { id: 'offer',        label: 'Offer',        kind: 'STRUCTURE', x: 565, y: 111, r: 20, tags: ['scope'] },
+    { id: 'sales',        label: 'Sales',        kind: 'SURFACE',   x: 676, y: 270, r: 18, tags: ['storefront'] },
+    { id: 'distribution', label: 'Distribution', kind: 'CHANNEL',   x: 626, y: 458, r: 21, tags: ['reach'] },
+    { id: 'content',      label: 'Content',      kind: 'OUTPUT',    x: 450, y: 540, r: 20, tags: ['pipeline'] },
+    { id: 'hooks',        label: 'Hooks',        kind: 'OUTPUT',    x: 262, y: 442, r: 19, tags: ['angles'] }
+  ];
+
+  const EDGES = [
+    ['audience','research'], ['audience','hooks'], ['audience','product'],
+    ['research','offer'],    ['research','hooks'],
+    ['offer','product'],     ['offer','sales'],
+    ['hooks','content'],
+    ['content','product'],   ['content','distribution'], ['content','sales'],
+    ['distribution','product'], ['distribution','sales']
+  ];
+
+  const uid = () => Math.random().toString(36).slice(2, 9);
+
+  function seed() {
+    return {
+      product: { name: 'AssetVault', url: '' },
+      notes: {
+        product: [
+          { id: uid(), text: 'The packaged form of everything upstream — research, hooks and offer collapsed into one deliverable.' },
+          { id: uid(), text: 'Structure: 6 modules, one worksheet per module, one template vault.' }
+        ],
+        audience:     [{ id: uid(), text: 'Written as one sentence before anything else gets made. Pulled from recurring questions, not assumptions.' }],
+        research:     [{ id: uid(), text: 'Raw capture layer. Nothing structured yet — that is deliberate.' }],
+        offer:        [{ id: uid(), text: 'The promise, the scope, and the boundary of what this does not cover.' }],
+        hooks:        [{ id: uid(), text: 'Angle library. One line per idea, no drafts stored here.' }],
+        content:      [{ id: uid(), text: 'Where hooks become scripts and scripts become recorded assets.' }],
+        distribution: [{ id: uid(), text: 'Channel map and cadence. One asset, several cuts.' }],
+        sales:        [{ id: uid(), text: 'Mirrors the Offer node word for word — no new promises here.' }]
+      },
+      ideas: [
+        { id: uid(), hook: 'Stop selling your hours. Build an asset instead.',        format: 'Talking head · 22s',    status: 'ready',    node: 'hooks'   },
+        { id: uid(), hook: 'Your knowledge is worth more packaged than explained.',   format: 'B-roll + caption · 18s', status: 'drafting', node: 'offer'   },
+        { id: uid(), hook: 'Claude + Obsidian = your unfair advantage.',              format: 'Screen capture · 30s',   status: 'queued',   node: 'content' }
+      ],
+      deploy: [
+        { id: uid(), label: 'Landing page', done: true,  node: 'sales'        },
+        { id: uid(), label: 'Product',      done: true,  node: 'product'      },
+        { id: uid(), label: 'Checkout',     done: true,  node: 'sales'        },
+        { id: uid(), label: 'Content',      done: false, node: 'distribution' }
+      ],
+      log: (function () {
+        const t = Date.now();
+        return [
+          { id: uid(), t: t,           text: 'Vault ready · 8 nodes, 13 links', kind: 'ok'   },
+          { id: uid(), t: t -  4000,   text: 'Deploy checklist loaded',         kind: 'info' },
+          { id: uid(), t: t -  9000,   text: 'Content pipeline restored',       kind: 'info' },
+          { id: uid(), t: t - 15000,   text: 'Notes index rebuilt',             kind: 'info' },
+          { id: uid(), t: t - 21000,   text: 'Local store mounted',             kind: 'info' }
+        ];
+      })()
+    };
+  }
+
+  /* ─────────── persistence (never throws) ─────────── */
+  let memoryOnly = false;
+  let state;
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) { memoryOnly = true; }
+    return seed();
+  }
+
+  function persist() {
+    if (memoryOnly) return;
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { memoryOnly = true; }
+  }
+
+  state = load();
+
+  /* ─────────── subscription ─────────── */
+  const subs = [];
+  const notify = () => subs.forEach(fn => fn(state));
+
+  function commit(mutator, logEntry) {
+    mutator(state);
+    if (logEntry) {
+      state.log.unshift({ id: uid(), t: Date.now(), text: logEntry.text, kind: logEntry.kind || 'info' });
+      state.log = state.log.slice(0, 40);
+    }
+    persist();
+    notify();
+  }
+
+  /* ─────────── derived values: every screen's numbers come from here ─────────── */
+  const STATUSES = ['queued', 'drafting', 'ready'];
+
+  const derived = {
+    noteCount:  id => (state.notes[id] || []).length,
+    totalNotes: () => Object.keys(state.notes).reduce((n, k) => n + state.notes[k].length, 0),
+    ideasFor:   id => state.ideas.filter(i => i.node === id),
+    deployFor:  id => state.deploy.filter(d => d.node === id),
+    ready:      () => state.ideas.filter(i => i.status === 'ready').length,
+
+    /* a node is "active" once anything is attached to it */
+    activeSystems: () => NODES.filter(n =>
+      derived.noteCount(n.id) > 0 || derived.ideasFor(n.id).length > 0
+    ).length,
+
+    deployDone: () => state.deploy.filter(d => d.done).length,
+    isLive:     () => state.deploy.length > 0 && state.deploy.every(d => d.done),
+
+    /* the four command-centre workflow rows, each a real fraction */
+    workflow: () => {
+      const notesIn = ids => ids.reduce((n, id) => n + derived.noteCount(id), 0);
+      const ideas   = state.ideas.length;
+      return [
+        { key: 'research',  name: 'Research market',      page: 'vault',   have: notesIn(['research','audience']),   need: 4, unit: 'notes' },
+        { key: 'structure', name: 'Structure knowledge',  page: 'vault',   have: notesIn(['offer','hooks','product']), need: 5, unit: 'notes' },
+        { key: 'build',     name: 'Build product',        page: 'deploy',  have: derived.deployDone(),               need: state.deploy.length || 1, unit: 'steps' },
+        { key: 'distribute',name: 'Distribute content',   page: 'content', have: derived.ready(),                    need: Math.max(ideas, 1), unit: 'ready' }
+      ];
+    }
+  };
+
+  /* ─────────── actions ─────────── */
+  const actions = {
+    addIdea(hook, format, node) {
+      const id = uid();
+      commit(s => s.ideas.unshift({ id, hook, format: format || 'Unassigned', status: 'queued', node: node || 'hooks' }),
+             { text: 'Idea captured · ' + hook.slice(0, 34) + (hook.length > 34 ? '…' : '') });
+      return id;
+    },
+    cycleStatus(id) {
+      let to = '';
+      commit(s => {
+        const i = s.ideas.find(x => x.id === id); if (!i) return;
+        i.status = STATUSES[(STATUSES.indexOf(i.status) + 1) % STATUSES.length];
+        to = i.status;
+      }, null);
+      const i = state.ideas.find(x => x.id === id);
+      if (i) commit(() => {}, { text: 'Status → ' + to.toUpperCase() + ' · ' + i.hook.slice(0, 26) + '…', kind: to === 'ready' ? 'ok' : 'info' });
+      return to;
+    },
+    removeIdea(id) {
+      const i = state.ideas.find(x => x.id === id);
+      commit(s => { s.ideas = s.ideas.filter(x => x.id !== id); },
+             { text: 'Idea removed · ' + (i ? i.hook.slice(0, 26) + '…' : ''), kind: 'warn' });
+    },
+    relinkIdea(id, node) {
+      commit(s => { const i = s.ideas.find(x => x.id === id); if (i) i.node = node; },
+             { text: 'Idea relinked → ' + node });
+    },
+    addNote(nodeId, text) {
+      commit(s => { (s.notes[nodeId] = s.notes[nodeId] || []).push({ id: uid(), text }); },
+             { text: 'Note added → ' + nodeId });
+    },
+    removeNote(nodeId, noteId) {
+      commit(s => { s.notes[nodeId] = (s.notes[nodeId] || []).filter(n => n.id !== noteId); },
+             { text: 'Note removed → ' + nodeId, kind: 'warn' });
+    },
+    toggleDeploy(id) {
+      let label = '', done = false;
+      commit(s => {
+        const d = s.deploy.find(x => x.id === id); if (!d) return;
+        d.done = !d.done; label = d.label; done = d.done;
+      }, null);
+      commit(() => {}, { text: label + (done ? ' · complete' : ' · reopened'), kind: done ? 'ok' : 'warn' });
+    },
+    setProduct(patch) {
+      commit(s => Object.assign(s.product, patch), { text: 'Product details updated' });
+    },
+    reset() {
+      state = seed(); persist(); notify();
+    }
+  };
+
+  global.Vault = {
+    NODES, EDGES, STATUSES,
+    get: () => state,
+    node: id => NODES.find(n => n.id === id),
+    subscribe: fn => { subs.push(fn); return () => subs.splice(subs.indexOf(fn), 1); },
+    derived, actions,
+    storageOK: () => !memoryOnly
+  };
+})(window);
+
+</script>
+<script>
+/* ══════════════════════════════════════════════
+   AssetVault OS — views. Nothing here holds state;
+   every screen renders from Vault.get() and re-renders on change.
+   ══════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  const $  = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+  const V  = window.Vault;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const typing = el => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+
+  /* ─────────── clock ─────────── */
+  const clockEl = $('#clock');
+  const tick = () => {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    clockEl.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  };
+  tick(); setInterval(tick, 1000);
+
+  /* ─────────── cursor light on panels ─────────── */
+  let spotQ = false, spotE = null;
+  document.addEventListener('pointermove', e => {
+    spotE = e;
+    if (spotQ) return;
+    spotQ = true;
+    requestAnimationFrame(() => {
+      spotQ = false;
+      const el = spotE.target && spotE.target.closest ? spotE.target.closest('.glass') : null;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (spotE.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (spotE.clientY - r.top) + 'px');
+    });
+  }, { passive: true });
+
+  /* ═══════════════ ROUTER ═══════════════ */
+  const TITLES = { command: 'Command', content: 'Content', vault: 'Vault', deploy: 'Deploy' };
+  const ORDER  = ['command', 'content', 'vault', 'deploy'];
+  let current = null, busy = false;
+
+  function go(name, opts) {
+    opts = opts || {};
+    if (!TITLES[name]) return;
+    if (name === current) { if (opts.then) opts.then(); return; }
+    if (busy) return;
+    busy = true;
+
+    const next = $('#page-' + name);
+    const prev = current ? $('#page-' + current) : null;
+
+    if (prev) {
+      stop(current);
+      prev.classList.add('leaving'); prev.classList.remove('active');
+      setTimeout(() => prev.classList.remove('leaving', 'playing'), 340);
+    }
+
+    $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === name));
+    $('#crumbText').textContent = TITLES[name];
+
+    setTimeout(() => {
+      next.classList.add('active');
+      next.classList.remove('playing'); void next.offsetWidth; next.classList.add('playing');
+      current = name;
+      start(name);
+      busy = false;
+      if (opts.then) opts.then();
+    }, prev ? 180 : 0);
+  }
+
+  $$('.nav-item').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
+
+  const timers = { content: [], deploy: [] };
+  const clearTimers = k => { timers[k].forEach(clearTimeout); timers[k] = []; };
+  const later = (k, fn, ms) => timers[k].push(setTimeout(fn, ms));
+
+  function start(n) {
+    if (n === 'command') startCommand();
+    if (n === 'content') startContent();
+    if (n === 'vault')   startGraph();
+    if (n === 'deploy')  startDeploy();
+  }
+  function stop(n) {
+    if (n === 'content') clearTimers('content');
+    if (n === 'deploy')  clearTimers('deploy');
+    if (n === 'vault')   stopGraph();
+  }
+
+  /* ═══════════════ 1 · COMMAND ═══════════════ */
+  function renderCommand() {
+    const s = V.get(), d = V.derived;
+    const live = d.isLive();
+
+    $('#statRow').innerHTML = [
+      { lab: 'PRODUCT',        val: esc(s.product.name), cls: '' },
+      { lab: 'STATUS',         val: (live ? 'LIVE' : 'BUILDING'), cls: live ? 'accent-live' : 'accent-warm', dot: true },
+      { lab: 'CONTENT READY',  val: d.ready(), count: true },
+      { lab: 'ACTIVE SYSTEMS', val: d.activeSystems(), count: true }
+    ].map((t, i) => `
+      <div class="stat glass anim" style="--i:${i + 1}">
+        <div class="stat-label mono">${t.lab}</div>
+        <div class="stat-value ${t.cls || ''}">${t.dot ? '<span class="dot ' + (live ? 'dot-live' : 'dot-warm') + '"></span>' : ''}<span ${t.count ? 'data-count="' + t.val + '"' : ''}>${t.val}</span></div>
+      </div>`).join('');
+
+    const wf = d.workflow();
+    $('#workflowNote').textContent = wf.filter(w => w.have >= w.need).length + ' / ' + wf.length + ' COMPLETE';
+
+    $('#flowRow').innerHTML = wf.map((w, i) => {
+      const pct  = Math.min(100, Math.round(w.have / w.need * 100));
+      const done = w.have >= w.need;
+      const state = done ? 'done' : (w.have > 0 ? 'active' : 'queued');
+      const chip = done ? '<span class="chip chip-done"><span class="dot dot-done"></span>COMPLETE</span>'
+                 : w.have > 0 ? '<span class="chip chip-active"><span class="dot dot-live"></span>ACTIVE</span>'
+                 : '<span class="chip chip-queued"><span class="dot dot-idle"></span>QUEUED</span>';
+      return `
+        <button class="flow glass anim ${done ? '' : 'is-active'}" style="--i:${i + 6}" data-page="${w.page}" data-state="${state}">
+          <div class="flow-top"><span class="flow-idx mono">0${i + 1}</span>${chip}</div>
+          <div class="flow-name">${w.name}</div>
+          <div class="flow-meta mono">${w.have} / ${w.need} ${w.unit}</div>
+          <div class="track"><i style="--pct:${pct}%"></i></div>
+        </button>`;
+    }).join('');
+
+    $$('#flowRow .flow').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
+  }
+
+  function countUp(el, to, ms) {
+    const t0 = performance.now();
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / ms);
+      el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step); else el.textContent = to;
+    })(t0);
+  }
+
+  function startCommand() {
+    $$('#page-command [data-count]').forEach((el, i) => {
+      const to = parseInt(el.dataset.count, 10);
+      el.textContent = '0';
+      setTimeout(() => countUp(el, to, 900), 340 + i * 120);
+    });
+  }
+
+  /* ═══════════════ 2 · CONTENT ═══════════════ */
+  const LABEL = { queued: 'QUEUED', drafting: 'DRAFTING', ready: 'READY' };
+  const CHIP  = { queued: 'chip-queued', drafting: 'chip-active', ready: 'chip-done' };
+  const DOT   = { queued: 'dot-idle',    drafting: 'dot-live',    ready: 'dot-done' };
+
+  function renderContent() {
+    const s = V.get();
+    $('#ideaEmpty').hidden = s.ideas.length > 0;
+
+    $('#ideaList').innerHTML = s.ideas.map((it, i) => {
+      const n = V.node(it.node) || { label: '—' };
+      return `
+        <article class="idea glass anim" style="--i:${i + 1}" data-id="${it.id}">
+          <p class="idea-hook">${esc(it.hook)}</p>
+          <div class="idea-meta">
+            <span class="meta-val">${esc(it.format)}</span>
+            <button class="node-chip" data-goto="${it.node}" title="Open in Vault">◈ ${esc(n.label)}</button>
+            <button class="chip ${CHIP[it.status]}" data-cycle="${it.id}" title="Click to advance">
+              <span class="dot ${DOT[it.status]}"></span>${LABEL[it.status]}
+            </button>
+            <button class="idea-del" data-del="${it.id}" title="Remove">×</button>
+          </div>
+        </article>`;
+    }).join('');
+
+    $$('#ideaList [data-cycle]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); V.actions.cycleStatus(b.dataset.cycle);
+    }));
+    $$('#ideaList [data-del]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); V.actions.removeIdea(b.dataset.del);
+    }));
+    $$('#ideaList [data-goto]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); openNode(b.dataset.goto);
+    }));
+
+    const sel = $('#composerNode');
+    if (!sel.options.length) {
+      sel.innerHTML = V.NODES.map(n => `<option value="${n.id}">${esc(n.label)}</option>`).join('');
+      sel.value = 'hooks';
+    }
+  }
+
+  /* composer */
+  const composer = $('#composer');
+  function openComposer() {
+    go('content', { then: () => {
+      composer.hidden = false;
+      composer.classList.add('in');
+      $('#composerHook').focus();
+    }});
+  }
+  function closeComposer() {
+    composer.hidden = true; composer.classList.remove('in');
+    $('#composerHook').value = ''; $('#composerFormat').value = '';
+  }
+  $('#newIdeaBtn').addEventListener('click', openComposer);
+  $('#composerCancel').addEventListener('click', closeComposer);
+  composer.addEventListener('submit', e => {
+    e.preventDefault();
+    const hook = $('#composerHook').value.trim();
+    if (!hook) return;
+    V.actions.addIdea(hook, $('#composerFormat').value.trim(), $('#composerNode').value);
+    closeComposer();
+  });
+
+  /* activity stream — real events, typed in for the first paint */
+  const termBody = $('#termBody');
+  let termShown = 0;
+
+  function fmtT(ts) {
+    const d = new Date(ts), p = n => String(n).padStart(2, '0');
+    return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+
+  function addLine(entry, animate, done) {
+    const row = document.createElement('div');
+    row.className = 'term-line ' + (entry.kind || 'info');
+    row.innerHTML = `<span class="term-ts">${fmtT(entry.t)}</span><span class="term-arrow">›</span><span class="term-text"></span>`;
+    termBody.appendChild(row);
+    termBody.scrollTop = termBody.scrollHeight;
+    const span = $('.term-text', row);
+
+    if (!animate) { span.textContent = entry.text; if (done) done(); return; }
+
+    const caret = document.createElement('span');
+    caret.className = 'caret'; span.appendChild(caret);
+    let i = 0;
+    (function step() {
+      if (i <= entry.text.length) {
+        span.textContent = entry.text.slice(0, i); span.appendChild(caret);
+        i++; later('content', step, 16);
+      } else { caret.remove(); if (done) done(); }
+    })();
+  }
+
+  function startContent() {
+    clearTimers('content');
+    termBody.innerHTML = '';
+    const recent = V.get().log.slice(0, 6).reverse();
+    termShown = V.get().log.length;
+    (function next(k) {
+      if (k >= recent.length) return;
+      addLine(recent[k], true, () => later('content', () => next(k + 1), 180));
+    })(0);
+  }
+
+  /* new events append live while the page is open */
+  function syncLog() {
+    const log = V.get().log;
+    if (current !== 'content' || log.length <= termShown) { termShown = log.length; return; }
+    const fresh = log.slice(0, log.length - termShown).reverse();
+    termShown = log.length;
+    fresh.forEach(e => addLine(e, true));
+  }
+
+  /* ═══════════════ 3 · VAULT ═══════════════ */
+  const svg = $('#graph'), gEdges = $('#gEdges'), gNodes = $('#gNodes'),
+        gPulses = $('#gPulses'), gZoom = $('#gZoom');
+  const NS = 'http://www.w3.org/2000/svg';
+  const byId = {}; V.NODES.forEach(n => { byId[n.id] = Object.assign({}, n); });
+  const CLUSTER = ['product', 'audience', 'offer', 'content', 'distribution'];
+
+  const edgeEls = [], nodeEls = {};
+  let built = false;
+
+  function buildGraph() {
+    if (built) return;
+    V.EDGES.forEach(([a, b]) => {
+      const ln = document.createElementNS(NS, 'line');
+      ln.setAttribute('class', 'edge'); gEdges.appendChild(ln);
+      edgeEls.push({ el: ln, a, b });
+    });
+    V.NODES.forEach(n => {
+      const g = document.createElementNS(NS, 'g');
+      g.setAttribute('class', 'node' + (n.hub ? ' hub' : ''));
+      const halo = document.createElementNS(NS, 'circle');
+      halo.setAttribute('class', 'node-halo'); halo.setAttribute('r', n.r + (n.hub ? 26 : 16));
+      let ring = null;
+      if (n.hub) { ring = document.createElementNS(NS, 'circle'); ring.setAttribute('class', 'node-ring'); ring.setAttribute('r', n.r + 9); }
+      const core = document.createElementNS(NS, 'circle');
+      core.setAttribute('class', 'node-core'); core.setAttribute('r', n.r);
+      const hit = document.createElementNS(NS, 'circle');
+      hit.setAttribute('r', n.r + 22); hit.setAttribute('fill', 'transparent');
+      const tx = document.createElementNS(NS, 'text'); tx.textContent = n.label;
+      const ct = document.createElementNS(NS, 'text'); ct.setAttribute('class', 'node-count');
+
+      g.appendChild(halo); if (ring) g.appendChild(ring);
+      g.appendChild(core); g.appendChild(hit); g.appendChild(tx); g.appendChild(ct);
+      g.addEventListener('click', () => selectNode(n.id));
+      gNodes.appendChild(g);
+      nodeEls[n.id] = { g, halo, ring, core, hit, tx, ct };
+    });
+    built = true;
+  }
+
+  /* each node carries its own weight: notes + linked ideas */
+  function renderGraphCounts() {
+    V.NODES.forEach(n => {
+      const c = V.derived.noteCount(n.id) + V.derived.ideasFor(n.id).length;
+      const e = nodeEls[n.id]; if (!e) return;
+      e.ct.textContent = c || '';
+      e.g.classList.toggle('empty', c === 0);
+    });
+  }
+
+  let raf = null, t0 = 0;
+  const pulses = []; let pulseTimer = null;
+
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    const t = (ts - t0) / 1000;
+    V.NODES.forEach((n, i) => {
+      const b = byId[n.id];
+      b.cx = n.x + Math.sin(t * .26 + i * 1.7) * 11 + Math.sin(t * .13 + i * .6) * 6;
+      b.cy = n.y + Math.cos(t * .22 + i * 2.1) * 10 + Math.cos(t * .17 + i * 1.1) * 5;
+      const e = nodeEls[n.id];
+      e.halo.setAttribute('cx', b.cx); e.halo.setAttribute('cy', b.cy);
+      if (e.ring) { e.ring.setAttribute('cx', b.cx); e.ring.setAttribute('cy', b.cy); }
+      e.core.setAttribute('cx', b.cx); e.core.setAttribute('cy', b.cy);
+      e.hit.setAttribute('cx', b.cx);  e.hit.setAttribute('cy', b.cy);
+      e.tx.setAttribute('x', b.cx);    e.tx.setAttribute('y', b.cy + n.r + 21);
+      e.ct.setAttribute('x', b.cx);    e.ct.setAttribute('y', b.cy + 5);
+    });
+    edgeEls.forEach(e => {
+      const a = byId[e.a], b = byId[e.b];
+      e.el.setAttribute('x1', a.cx); e.el.setAttribute('y1', a.cy);
+      e.el.setAttribute('x2', b.cx); e.el.setAttribute('y2', b.cy);
+    });
+    for (let i = pulses.length - 1; i >= 0; i--) {
+      const p = pulses[i]; p.k += p.speed;
+      if (p.k >= 1) { p.el.remove(); pulses.splice(i, 1); continue; }
+      const a = byId[p.a], b = byId[p.b];
+      p.el.setAttribute('cx', a.cx + (b.cx - a.cx) * p.k);
+      p.el.setAttribute('cy', a.cy + (b.cy - a.cy) * p.k);
+      p.el.setAttribute('opacity', Math.sin(p.k * Math.PI) * .95);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function emitPulse() {
+    const e = V.EDGES[Math.floor(Math.random() * V.EDGES.length)];
+    const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('class', 'pulse-dot'); c.setAttribute('r', 3.4);
+    gPulses.appendChild(c);
+    pulses.push({ el: c, a: e[0], b: e[1], k: 0, speed: .0042 + Math.random() * .003 });
+    pulseTimer = setTimeout(emitPulse, 620 + Math.random() * 1100);
+  }
+
+  function startGraph() {
+    buildGraph(); renderGraphCounts(); t0 = 0;
+    if (!raf) raf = requestAnimationFrame(frame);
+    if (!pulseTimer) pulseTimer = setTimeout(emitPulse, 500);
+  }
+  function stopGraph() {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    if (pulseTimer) { clearTimeout(pulseTimer); pulseTimer = null; }
+    pulses.splice(0).forEach(p => p.el.remove());
+    closeNote();
+  }
+
+  /* ─── node panel: notes, linked content, deploy ─── */
+  const panel = $('#notePanel'), graphHint = $('.graph-hint');
+  let selected = null;
+
+  function selectNode(id) {
+    if (selected === id) { closeNote(); return; }
+    selected = id;
+
+    const cluster = id === 'product' ? CLUSTER
+      : [id].concat(V.EDGES.filter(e => e.indexOf(id) > -1).map(e => e[0] === id ? e[1] : e[0]));
+
+    Object.keys(nodeEls).forEach(k => {
+      nodeEls[k].g.classList.toggle('sel', k === id);
+      nodeEls[k].g.classList.toggle('faded', cluster.indexOf(k) === -1);
+    });
+    edgeEls.forEach(e => {
+      const inC = cluster.indexOf(e.a) > -1 && cluster.indexOf(e.b) > -1;
+      const touch = e.a === id || e.b === id;
+      e.el.classList.toggle('lit', touch);
+      e.el.classList.toggle('dim', !inC && !touch);
+    });
+    gZoom.setAttribute('transform', id === 'product'
+      ? 'translate(-272, -49.6) scale(1.16)' : 'translate(-212.5, -15.5) scale(1.05)');
+
+    renderPanel();
+    panel.classList.add('open');
+    graphHint.classList.add('hidden');
+  }
+
+  function renderPanel() {
+    if (!selected) return;
+    const n = V.node(selected), notes = V.get().notes[selected] || [];
+    const ideas = V.derived.ideasFor(selected), dep = V.derived.deployFor(selected);
+
+    $('#noteKicker').textContent = n.kind + ' NODE';
+    $('#noteTitle').textContent  = n.label;
+    $('#noteTags').innerHTML     = n.tags.map(t => `<span class="note-tag">#${t}</span>`).join('');
+    $('#noteCount').textContent  = notes.length;
+    $('#linkedCount').textContent = ideas.length;
+
+    $('#noteList').innerHTML = notes.length
+      ? notes.map(nt => `<li>${esc(nt.text)}<button class="note-del" data-note="${nt.id}" aria-label="Remove">×</button></li>`).join('')
+      : '<li class="muted">No notes yet.</li>';
+    $$('#noteList [data-note]').forEach(b =>
+      b.addEventListener('click', () => V.actions.removeNote(selected, b.dataset.note)));
+
+    $('#linkedIdeasSec').hidden = ideas.length === 0;
+    $('#linkedIdeas').innerHTML = ideas.map(i =>
+      `<button class="link-row" data-idea="${i.id}">
+         <span class="dot ${DOT[i.status]}"></span>
+         <span class="link-text">${esc(i.hook)}</span>
+       </button>`).join('');
+    $$('#linkedIdeas [data-idea]').forEach(b =>
+      b.addEventListener('click', () => focusIdea(b.dataset.idea)));
+
+    $('#linkedDeploySec').hidden = dep.length === 0;
+    $('#linkedDeploy').innerHTML = dep.map(d =>
+      `<button class="link-row" data-dep="${d.id}">
+         <span class="tick ${d.done ? 'on' : ''}"></span>
+         <span class="link-text">${esc(d.label)}</span>
+       </button>`).join('');
+    $$('#linkedDeploy [data-dep]').forEach(b =>
+      b.addEventListener('click', () => V.actions.toggleDeploy(b.dataset.dep)));
+  }
+
+  $('#noteForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = $('#noteInput').value.trim();
+    if (!v || !selected) return;
+    V.actions.addNote(selected, v);
+    $('#noteInput').value = '';
+  });
+
+  function closeNote() {
+    selected = null;
+    panel.classList.remove('open');
+    graphHint.classList.remove('hidden');
+    gZoom.setAttribute('transform', '');
+    Object.keys(nodeEls).forEach(k => nodeEls[k].g.classList.remove('sel', 'faded'));
+    edgeEls.forEach(e => e.el.classList.remove('lit', 'dim'));
+  }
+  $('#noteClose').addEventListener('click', closeNote);
+  svg.addEventListener('click', e => { if (e.target === svg) closeNote(); });
+
+  /* ─── cross-screen jumps ─── */
+  function openNode(id) { go('vault', { then: () => setTimeout(() => selectNode(id), 260) }); }
+  function focusIdea(id) {
+    go('content', { then: () => setTimeout(() => {
+      const el = $(`#ideaList [data-id="${id}"]`);
+      if (!el) return;
+      $$('#ideaList .idea').forEach(x => x.classList.remove('hot'));
+      el.classList.add('hot');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 280) });
+  }
+
+  /* ═══════════════ 4 · DEPLOY ═══════════════ */
+  const PIPE = [
+    { key: 'idea',    label: 'Idea',         test: s => s.ideas.length > 0 },
+    { key: 'struct',  label: 'Structure',    test: () => V.derived.totalNotes() >= 5 },
+    { key: 'product', label: 'Product',      test: s => s.deploy.some(d => d.label === 'Product' && d.done) },
+    { key: 'store',   label: 'Storefront',   test: s => s.deploy.filter(d => /Landing|Checkout/.test(d.label)).every(d => d.done) },
+    { key: 'dist',    label: 'Distribution', test: s => s.deploy.some(d => d.label === 'Content' && d.done) }
+  ];
+
+  function renderDeploy() {
+    const s = V.get();
+    const on = PIPE.map(p => !!p.test(s));
+
+    $('#pipeline').innerHTML = PIPE.map((p, i) =>
+      `${i ? `<div class="pl-link" data-link="${i - 1}"><i></i></div>` : ''}
+       <div class="pl-step" data-step="${i}"><span class="pl-node"></span><span class="pl-label">${p.label}</span></div>`
+    ).join('');
+
+    $('#checkRow').innerHTML = s.deploy.map((d, i) =>
+      `<button class="check glass ${d.done ? 'on' : ''}" data-dep="${d.id}" style="--i:${i}">
+         <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+         <span class="check-name">${esc(d.label)}</span>
+       </button>`).join('');
+    $$('#checkRow [data-dep]').forEach(b =>
+      b.addEventListener('click', () => V.actions.toggleDeploy(b.dataset.dep)));
+
+    $('#urlField').value = s.product.url || '';
+    return on;
+  }
+
+  function setBadge(on) {
+    const badge = $('#deployStatus'), tx = $('#deployStatusText');
+    const live = V.derived.isLive();
+    const any  = on.some(Boolean);
+    badge.dataset.state = live ? 'live' : (any ? 'ready' : 'building');
+    tx.textContent      = live ? 'PRODUCT LIVE' : (any ? 'IN PROGRESS' : 'BUILDING');
+    $('#ctaBtn').classList.toggle('armed', live);
+  }
+
+  /* repaint without the entrance sequence — used when state changes
+     while the page is already open, which otherwise blanks the pipeline */
+  function paintDeploy(on) {
+    $$('#pipeline .pl-step').forEach((s, i) => s.classList.toggle('on', on[i]));
+    $$('#pipeline .pl-link').forEach((l, k) => l.classList.toggle('on', on[k] && on[k + 1]));
+    setBadge(on);
+  }
+
+  function startDeploy() {
+    clearTimers('deploy');
+    const on = renderDeploy();
+    const steps = $$('#pipeline .pl-step'), links = $$('#pipeline .pl-link'), checks = $$('#checkRow .check');
+
+    steps.forEach(s => s.classList.remove('on'));
+    links.forEach(l => l.classList.remove('on'));
+    checks.forEach(c => c.classList.remove('on'));
+    $('#ctaBtn').classList.remove('armed');
+    $('#deployStatus').dataset.state = 'building';
+    $('#deployStatusText').textContent = 'BUILDING';
+
+    /* light up only as far as the real state goes */
+    let t = 700;
+    on.forEach((lit, i) => {
+      if (!lit) return;
+      later('deploy', () => steps[i].classList.add('on'), t);
+      if (i > 0 && on[i - 1]) later('deploy', () => links[i - 1].classList.add('on'), t - 300);
+      t += 760;
+    });
+
+    V.get().deploy.forEach((d, i) => {
+      if (d.done) later('deploy', () => checks[i] && checks[i].classList.add('on'), 1500 + i * 600);
+    });
+
+    later('deploy', () => setBadge(on), t + 300);
+  }
+
+  $('#urlField').addEventListener('change', e => V.actions.setProduct({ url: e.target.value.trim() }));
+  $('#ctaBtn').addEventListener('click', () => {
+    const u = V.get().product.url;
+    if (!V.derived.isLive()) return;
+    if (u) window.open(u, '_blank', 'noopener');
+    else $('#urlField').focus();
+  });
+
+  /* ═══════════════ COMMAND PALETTE ═══════════════ */
+  const scrim = $('#paletteScrim'), pInput = $('#paletteInput'), pResults = $('#paletteResults');
+  let pItems = [], pSel = 0;
+
+  function buildItems() {
+    const s = V.get(), out = [];
+    ORDER.forEach(p => out.push({ grp: 'Page', label: TITLES[p], hint: 'Go to ' + TITLES[p], run: () => go(p) }));
+    V.NODES.forEach(n => out.push({
+      grp: 'Node', label: n.label,
+      hint: V.derived.noteCount(n.id) + ' notes · ' + V.derived.ideasFor(n.id).length + ' linked',
+      run: () => openNode(n.id)
+    }));
+    s.ideas.forEach(i => out.push({
+      grp: 'Idea', label: i.hook, hint: LABEL[i.status], run: () => focusIdea(i.id)
+    }));
+    out.push({ grp: 'Action', label: 'New idea', hint: 'Capture a hook', run: openComposer });
+    s.deploy.forEach(d => out.push({
+      grp: 'Action', label: (d.done ? 'Reopen ' : 'Complete ') + d.label,
+      hint: 'Deploy', run: () => V.actions.toggleDeploy(d.id)
+    }));
+    return out;
+  }
+
+  function renderPalette() {
+    const q = pInput.value.trim().toLowerCase();
+    const all = buildItems();
+    pItems = q ? all.filter(i => (i.label + ' ' + i.grp).toLowerCase().includes(q)) : all;
+    pSel = 0;
+    pResults.innerHTML = pItems.length
+      ? pItems.map((i, k) => `
+          <button class="pal-row ${k === 0 ? 'sel' : ''}" data-k="${k}">
+            <span class="pal-grp mono">${i.grp}</span>
+            <span class="pal-label">${esc(i.label)}</span>
+            <span class="pal-hint mono">${esc(i.hint)}</span>
+          </button>`).join('')
+      : '<div class="pal-none">No matches</div>';
+    $('#paletteCountLab').textContent = pItems.length + ' result' + (pItems.length === 1 ? '' : 's');
+    $$('.pal-row', pResults).forEach(b =>
+      b.addEventListener('click', () => runPalette(parseInt(b.dataset.k, 10))));
+  }
+
+  function movePalette(d) {
+    if (!pItems.length) return;
+    pSel = (pSel + d + pItems.length) % pItems.length;
+    $$('.pal-row', pResults).forEach((b, k) => b.classList.toggle('sel', k === pSel));
+    const el = $$('.pal-row', pResults)[pSel];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+  function runPalette(k) {
+    const it = pItems[k == null ? pSel : k];
+    closePalette();
+    if (it) setTimeout(it.run, 60);
+  }
+  function openPalette() {
+    scrim.hidden = false; requestAnimationFrame(() => scrim.classList.add('in'));
+    pInput.value = ''; renderPalette(); pInput.focus();
+  }
+  function closePalette() {
+    scrim.classList.remove('in');
+    setTimeout(() => { scrim.hidden = true; }, 200);
+  }
+
+  pInput.addEventListener('input', renderPalette);
+  scrim.addEventListener('mousedown', e => { if (e.target === scrim) closePalette(); });
+  $('#paletteCue').addEventListener('click', openPalette);
+
+  /* ═══════════════ SHORTCUTS ═══════════════ */
+  document.addEventListener('keydown', e => {
+    const open = !scrim.hidden;
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); open ? closePalette() : openPalette(); return;
+    }
+    if (open) {
+      if (e.key === 'Escape')    { e.preventDefault(); closePalette(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); movePalette(1); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); movePalette(-1); }
+      if (e.key === 'Enter')     { e.preventDefault(); runPalette(); }
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if (e.key === 'Escape') {
+      if (!composer.hidden) { closeComposer(); return; }
+      closeNote(); return;
+    }
+    if (typing(e.target)) return;
+
+    const i = ['1', '2', '3', '4'].indexOf(e.key);
+    if (i > -1) {
+      e.preventDefault();
+      const btn = $$('.nav-item')[i];
+      btn.classList.remove('keyed'); void btn.offsetWidth; btn.classList.add('keyed');
+      setTimeout(() => btn.classList.remove('keyed'), 460);
+      go(ORDER[i]); return;
+    }
+    if (e.key.toLowerCase() === 'n') { e.preventDefault(); openComposer(); }
+  });
+
+  /* ═══════════════ GLOBAL RENDER ═══════════════ */
+  function renderChrome() {
+    const s = V.get(), d = V.derived;
+    $('#navCountContent').textContent = s.ideas.length;
+    $('#navCountVault').textContent   = d.totalNotes();
+    $('#navCountDeploy').textContent  = d.deployDone() + '/' + s.deploy.length;
+    $('#brandName').textContent       = (s.product.name || 'ASSETVAULT').toUpperCase();
+
+    const live = d.isLive();
+    const pill = $('#stagePill');
+    pill.dataset.state = live ? 'live' : 'building';
+    $('#stageText').textContent = live ? 'LIVE' : 'BUILDING';
+    $('#storageState').textContent = V.storageOK() ? 'SAVED LOCALLY' : 'SESSION ONLY';
+  }
+
+  function renderAll() {
+    renderChrome();
+    renderCommand();
+    renderContent();
+    if (built) renderGraphCounts();
+    if (selected) renderPanel();
+    if (current === 'deploy') paintDeploy(renderDeploy());
+  }
+
+  V.subscribe(() => { renderAll(); syncLog(); });
+
+  /* ─────────── boot ─────────── */
+  renderAll();
+  go('command');
+})();
+
+</script>
+</body>
+</html>

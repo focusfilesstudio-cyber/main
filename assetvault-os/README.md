@@ -5,10 +5,16 @@ Four connected screens over one shared store. No backend, no accounts, no networ
 
 ## Run it
 
-Either way, no install:
+**Easiest — one file, nothing to install:**
+double-click **`AssetVault-OS.html`**. That single file has the CSS and JS
+inlined, makes no network requests, and needs no server. Nothing else in this
+folder has to be present for it to work.
 
-1. **Double-click `index.html`**, or
-2. `python3 -m http.server 3000` in this folder, then open http://localhost:3000
+**Working on the source instead:** edit `index.html` / `styles.css` /
+`store.js` / `app.js`, then run `./build.sh` to regenerate the single file.
+You can also double-click `index.html` directly, or serve the folder with
+`python3 -m http.server 3000` and open http://localhost:3000 — note that a
+localhost URL only works on the machine actually running that command.
 
 ## How it's connected
 
