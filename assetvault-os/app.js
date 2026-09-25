@@ -1,61 +1,50 @@
 /* ══════════════════════════════════════════════
-   AssetVault OS — local visual dashboard
-   No dependencies. No network. No build step.
+   AssetVault OS — views. Nothing here holds state;
+   every screen renders from Vault.get() and re-renders on change.
    ══════════════════════════════════════════════ */
 (function () {
   'use strict';
 
   const $  = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
+  const V  = window.Vault;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const typing = el => el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
 
   /* ─────────── clock ─────────── */
   const clockEl = $('#clock');
   const tick = () => {
-    const d = new Date();
-    const p = n => String(n).padStart(2, '0');
+    const d = new Date(), p = n => String(n).padStart(2, '0');
     clockEl.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
   };
-  tick();
-  setInterval(tick, 1000);
+  tick(); setInterval(tick, 1000);
 
-  /* ─────────── cursor spotlight on glass panels ─────────── */
-  /* One delegated listener, one layout read per frame — cheap enough to film over. */
-  let spotQueued = false, spotEv = null;
+  /* ─────────── cursor light on panels ─────────── */
+  let spotQ = false, spotE = null;
   document.addEventListener('pointermove', e => {
-    spotEv = e;
-    if (spotQueued) return;
-    spotQueued = true;
+    spotE = e;
+    if (spotQ) return;
+    spotQ = true;
     requestAnimationFrame(() => {
-      spotQueued = false;
-      const t = spotEv.target;
-      const el = t && t.closest ? t.closest('.glass') : null;
+      spotQ = false;
+      const el = spotE.target && spotE.target.closest ? spotE.target.closest('.glass') : null;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', (spotEv.clientX - r.left) + 'px');
-      el.style.setProperty('--my', (spotEv.clientY - r.top) + 'px');
+      el.style.setProperty('--mx', (spotE.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (spotE.clientY - r.top) + 'px');
     });
   }, { passive: true });
 
-  /* ─────────── router ─────────── */
-  const TITLES = {
-    command: 'Command Center',
-    content: 'Content Engine',
-    vault:   'Vault Graph',
-    deploy:  'Product Deployment'
-  };
-  const ORDER = ['command', 'content', 'vault', 'deploy'];
+  /* ═══════════════ ROUTER ═══════════════ */
+  const TITLES = { command: 'Command', content: 'Content', vault: 'Vault', deploy: 'Deploy' };
+  const ORDER  = ['command', 'content', 'vault', 'deploy'];
+  let current = null, busy = false;
 
-  let current = null;
-  let busy = false;
-
-  function replayEntrance(page) {
-    page.classList.remove('playing');
-    void page.offsetWidth;          // force reflow so CSS animations restart
-    page.classList.add('playing');
-  }
-
-  function go(name) {
-    if (busy || name === current || !TITLES[name]) return;
+  function go(name, opts) {
+    opts = opts || {};
+    if (!TITLES[name]) return;
+    if (name === current) { if (opts.then) opts.then(); return; }
+    if (busy) return;
     busy = true;
 
     const next = $('#page-' + name);
@@ -63,8 +52,7 @@
 
     if (prev) {
       stop(current);
-      prev.classList.add('leaving');
-      prev.classList.remove('active');
+      prev.classList.add('leaving'); prev.classList.remove('active');
       setTimeout(() => prev.classList.remove('leaving', 'playing'), 340);
     }
 
@@ -73,366 +61,300 @@
 
     setTimeout(() => {
       next.classList.add('active');
-      replayEntrance(next);
+      next.classList.remove('playing'); void next.offsetWidth; next.classList.add('playing');
       current = name;
       start(name);
       busy = false;
+      if (opts.then) opts.then();
     }, prev ? 180 : 0);
   }
 
   $$('.nav-item').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
 
-  document.addEventListener('keydown', e => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const i = ['1', '2', '3', '4'].indexOf(e.key);
-    if (i > -1) {
-      e.preventDefault();
-      const btn = $$('.nav-item')[i];                 // flash the key so the press reads on camera
-      btn.classList.remove('keyed'); void btn.offsetWidth; btn.classList.add('keyed');
-      setTimeout(() => btn.classList.remove('keyed'), 460);
-      go(ORDER[i]);
-      return;
-    }
-    if (e.key === 'Escape') closeNote();
-  });
-
-  /* per-page timer bookkeeping so nothing runs off-screen */
   const timers = { content: [], deploy: [] };
   const clearTimers = k => { timers[k].forEach(clearTimeout); timers[k] = []; };
   const later = (k, fn, ms) => timers[k].push(setTimeout(fn, ms));
 
-  function start(name) {
-    if (name === 'command') startCommand();
-    if (name === 'content') startContent();
-    if (name === 'vault')   startGraph();
-    if (name === 'deploy')  startDeploy();
+  function start(n) {
+    if (n === 'command') startCommand();
+    if (n === 'content') startContent();
+    if (n === 'vault')   startGraph();
+    if (n === 'deploy')  startDeploy();
   }
-  function stop(name) {
-    if (name === 'content') { clearTimers('content'); }
-    if (name === 'vault')   { stopGraph(); }
-    if (name === 'deploy')  { clearTimers('deploy'); }
+  function stop(n) {
+    if (n === 'content') clearTimers('content');
+    if (n === 'deploy')  clearTimers('deploy');
+    if (n === 'vault')   stopGraph();
   }
 
-  /* ══════════ PAGE 1 — counters + workflow card clicks ══════════ */
+  /* ═══════════════ 1 · COMMAND ═══════════════ */
+  function renderCommand() {
+    const s = V.get(), d = V.derived;
+    const live = d.isLive();
+
+    $('#statRow').innerHTML = [
+      { lab: 'PRODUCT',        val: esc(s.product.name), cls: '' },
+      { lab: 'STATUS',         val: (live ? 'LIVE' : 'BUILDING'), cls: live ? 'accent-live' : 'accent-warm', dot: true },
+      { lab: 'CONTENT READY',  val: d.ready(), count: true },
+      { lab: 'ACTIVE SYSTEMS', val: d.activeSystems(), count: true }
+    ].map((t, i) => `
+      <div class="stat glass anim" style="--i:${i + 1}">
+        <div class="stat-label mono">${t.lab}</div>
+        <div class="stat-value ${t.cls || ''}">${t.dot ? '<span class="dot ' + (live ? 'dot-live' : 'dot-warm') + '"></span>' : ''}<span ${t.count ? 'data-count="' + t.val + '"' : ''}>${t.val}</span></div>
+      </div>`).join('');
+
+    const wf = d.workflow();
+    $('#workflowNote').textContent = wf.filter(w => w.have >= w.need).length + ' / ' + wf.length + ' COMPLETE';
+
+    $('#flowRow').innerHTML = wf.map((w, i) => {
+      const pct  = Math.min(100, Math.round(w.have / w.need * 100));
+      const done = w.have >= w.need;
+      const state = done ? 'done' : (w.have > 0 ? 'active' : 'queued');
+      const chip = done ? '<span class="chip chip-done"><span class="dot dot-done"></span>COMPLETE</span>'
+                 : w.have > 0 ? '<span class="chip chip-active"><span class="dot dot-live"></span>ACTIVE</span>'
+                 : '<span class="chip chip-queued"><span class="dot dot-idle"></span>QUEUED</span>';
+      return `
+        <button class="flow glass anim ${done ? '' : 'is-active'}" style="--i:${i + 6}" data-page="${w.page}" data-state="${state}">
+          <div class="flow-top"><span class="flow-idx mono">0${i + 1}</span>${chip}</div>
+          <div class="flow-name">${w.name}</div>
+          <div class="flow-meta mono">${w.have} / ${w.need} ${w.unit}</div>
+          <div class="track"><i style="--pct:${pct}%"></i></div>
+        </button>`;
+    }).join('');
+
+    $$('#flowRow .flow').forEach(b => b.addEventListener('click', () => go(b.dataset.page)));
+  }
+
   function countUp(el, to, ms) {
     const t0 = performance.now();
     (function step(now) {
       const k = Math.min(1, (now - t0) / ms);
-      const eased = 1 - Math.pow(1 - k, 3);          // ease-out cubic
-      el.textContent = Math.round(to * eased);
-      if (k < 1) requestAnimationFrame(step);
-      else el.textContent = to;
+      el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step); else el.textContent = to;
     })(t0);
   }
 
   function startCommand() {
-    $$('#page-command .stat-value[data-count]').forEach((el, i) => {
+    $$('#page-command [data-count]').forEach((el, i) => {
       const to = parseInt(el.dataset.count, 10);
       el.textContent = '0';
-      setTimeout(() => countUp(el, to, 1100), 380 + i * 130);
+      setTimeout(() => countUp(el, to, 900), 340 + i * 120);
     });
   }
 
+  /* ═══════════════ 2 · CONTENT ═══════════════ */
+  const LABEL = { queued: 'QUEUED', drafting: 'DRAFTING', ready: 'READY' };
+  const CHIP  = { queued: 'chip-queued', drafting: 'chip-active', ready: 'chip-done' };
+  const DOT   = { queued: 'dot-idle',    drafting: 'dot-live',    ready: 'dot-done' };
 
-  $$('#page-command .flow').forEach(card => {
-    card.addEventListener('click', () => {
-      const on = card.classList.contains('picked');
-      $$('#page-command .flow').forEach(c => c.classList.remove('picked'));
-      if (!on) card.classList.add('picked');
-    });
+  function renderContent() {
+    const s = V.get();
+    $('#ideaEmpty').hidden = s.ideas.length > 0;
+
+    $('#ideaList').innerHTML = s.ideas.map((it, i) => {
+      const n = V.node(it.node) || { label: '—' };
+      return `
+        <article class="idea glass anim" style="--i:${i + 1}" data-id="${it.id}">
+          <p class="idea-hook">${esc(it.hook)}</p>
+          <div class="idea-meta">
+            <span class="meta-val">${esc(it.format)}</span>
+            <button class="node-chip" data-goto="${it.node}" title="Open in Vault">◈ ${esc(n.label)}</button>
+            <button class="chip ${CHIP[it.status]}" data-cycle="${it.id}" title="Click to advance">
+              <span class="dot ${DOT[it.status]}"></span>${LABEL[it.status]}
+            </button>
+            <button class="idea-del" data-del="${it.id}" title="Remove">×</button>
+          </div>
+        </article>`;
+    }).join('');
+
+    $$('#ideaList [data-cycle]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); V.actions.cycleStatus(b.dataset.cycle);
+    }));
+    $$('#ideaList [data-del]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); V.actions.removeIdea(b.dataset.del);
+    }));
+    $$('#ideaList [data-goto]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); openNode(b.dataset.goto);
+    }));
+
+    const sel = $('#composerNode');
+    if (!sel.options.length) {
+      sel.innerHTML = V.NODES.map(n => `<option value="${n.id}">${esc(n.label)}</option>`).join('');
+      sel.value = 'hooks';
+    }
+  }
+
+  /* composer */
+  const composer = $('#composer');
+  function openComposer() {
+    go('content', { then: () => {
+      composer.hidden = false;
+      composer.classList.add('in');
+      $('#composerHook').focus();
+    }});
+  }
+  function closeComposer() {
+    composer.hidden = true; composer.classList.remove('in');
+    $('#composerHook').value = ''; $('#composerFormat').value = '';
+  }
+  $('#newIdeaBtn').addEventListener('click', openComposer);
+  $('#composerCancel').addEventListener('click', closeComposer);
+  composer.addEventListener('submit', e => {
+    e.preventDefault();
+    const hook = $('#composerHook').value.trim();
+    if (!hook) return;
+    V.actions.addIdea(hook, $('#composerFormat').value.trim(), $('#composerNode').value);
+    closeComposer();
   });
 
-  /* ══════════ PAGE 2 — terminal + auto-highlight ══════════ */
-  const TERM = [
-    { t: 'Analyzing audience...',  ok: false },
-    { t: 'Structuring angle...',   ok: false },
-    { t: 'Matching offer...',      ok: false },
-    { t: 'Draft ready.',           ok: true  }
-  ];
+  /* activity stream — real events, typed in for the first paint */
   const termBody = $('#termBody');
-  let termT0 = 0;
-  const stamp = () => {
-    const s = (performance.now() - termT0) / 1000;
-    return '00:' + String(Math.floor(s)).padStart(2, '0') + '.' + Math.floor((s % 1) * 10);
-  };
-  const ideas = $$('#page-content .idea');
+  let termShown = 0;
 
-  function typeLine(idx, done) {
-    if (idx >= TERM.length) return done();
+  function fmtT(ts) {
+    const d = new Date(ts), p = n => String(n).padStart(2, '0');
+    return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
 
+  function addLine(entry, animate, done) {
     const row = document.createElement('div');
-    row.className = 'term-line';
-    row.innerHTML = '<span class="term-ts">' + stamp() + '</span>' +
-                    '<span class="term-arrow">›</span><span class="term-text"></span>';
+    row.className = 'term-line ' + (entry.kind || 'info');
+    row.innerHTML = `<span class="term-ts">${fmtT(entry.t)}</span><span class="term-arrow">›</span><span class="term-text"></span>`;
     termBody.appendChild(row);
-
+    termBody.scrollTop = termBody.scrollHeight;
     const span = $('.term-text', row);
-    const full = TERM[idx].t;
-    let i = 0;
+
+    if (!animate) { span.textContent = entry.text; if (done) done(); return; }
 
     const caret = document.createElement('span');
-    caret.className = 'caret';
-    span.appendChild(caret);
-
+    caret.className = 'caret'; span.appendChild(caret);
+    let i = 0;
     (function step() {
-      if (i <= full.length) {
-        span.textContent = full.slice(0, i);
-        span.appendChild(caret);
-        i++;
-        later('content', step, 24);
-      } else {
-        caret.remove();
-        row.classList.add(TERM[idx].ok ? 'ok' : 'done');
-        later('content', () => typeLine(idx + 1, done), TERM[idx].ok ? 260 : 430);
-      }
-    })();
-  }
-
-  function runTerminal() {
-    termBody.innerHTML = '';
-    termT0 = performance.now();
-    typeLine(0, () => later('content', runTerminal, 2600));
-  }
-
-  function runHighlight() {
-    let k = 0;
-    (function cycle() {
-      ideas.forEach((el, i) => el.classList.toggle('hot', i === k));
-      k = (k + 1) % ideas.length;
-      later('content', cycle, 2800);
+      if (i <= entry.text.length) {
+        span.textContent = entry.text.slice(0, i); span.appendChild(caret);
+        i++; later('content', step, 16);
+      } else { caret.remove(); if (done) done(); }
     })();
   }
 
   function startContent() {
     clearTimers('content');
-    later('content', runTerminal, 700);
-    later('content', runHighlight, 900);
+    termBody.innerHTML = '';
+    const recent = V.get().log.slice(0, 6).reverse();
+    termShown = V.get().log.length;
+    (function next(k) {
+      if (k >= recent.length) return;
+      addLine(recent[k], true, () => later('content', () => next(k + 1), 180));
+    })(0);
   }
 
-  /* manual click overrides the auto-highlight for that card */
-  ideas.forEach(card => {
-    card.addEventListener('click', () => {
-      ideas.forEach(c => c.classList.remove('hot'));
-      card.classList.add('hot');
-    });
-  });
+  /* new events append live while the page is open */
+  function syncLog() {
+    const log = V.get().log;
+    if (current !== 'content' || log.length <= termShown) { termShown = log.length; return; }
+    const fresh = log.slice(0, log.length - termShown).reverse();
+    termShown = log.length;
+    fresh.forEach(e => addLine(e, true));
+  }
 
-  /* ══════════ PAGE 3 — vault graph ══════════ */
-  const NODES = [
-    { id: 'product',      label: 'Product',      x: 450, y: 310, r: 26, hub: true },
-    { id: 'audience',     label: 'Audience',     x: 234, y: 231, r: 20 },
-    { id: 'research',     label: 'Research',     x: 371, y:  94, r: 18 },
-    { id: 'offer',        label: 'Offer',        x: 565, y: 111, r: 20 },
-    { id: 'sales',        label: 'Sales',        x: 676, y: 270, r: 18 },
-    { id: 'distribution', label: 'Distribution', x: 626, y: 458, r: 21 },
-    { id: 'content',      label: 'Content',      x: 450, y: 540, r: 20 },
-    { id: 'hooks',        label: 'Hooks',        x: 262, y: 442, r: 19 }
-  ];
-
-  const EDGES = [
-    ['audience', 'research'], ['audience', 'hooks'], ['audience', 'product'],
-    ['research', 'offer'],    ['research', 'hooks'],
-    ['offer', 'product'],     ['offer', 'sales'],
-    ['hooks', 'content'],
-    ['content', 'product'],   ['content', 'distribution'], ['content', 'sales'],
-    ['distribution', 'product'], ['distribution', 'sales']
-  ];
-
-  /* factual-looking working notes — no revenue, customer or sales claims */
-  const NOTES = {
-    product: {
-      kicker: 'CORE NODE',
-      tags: ['hub', 'asset', 'v1'],
-      links: 4,
-      notes: [
-        'The packaged form of everything upstream — research, hooks and offer collapsed into one deliverable.',
-        'Structure: 6 modules, one worksheet per module, one template vault.',
-        'Every other node either feeds this or distributes it.'
-      ]
-    },
-    audience: {
-      kicker: 'INPUT NODE', tags: ['research', 'positioning'], links: 3,
-      notes: [
-        'Who the asset is built for, written as a single sentence before anything else gets made.',
-        'Pulled from recurring questions, not assumptions.',
-        'Feeds directly into Hooks and Offer.'
-      ]
-    },
-    research: {
-      kicker: 'INPUT NODE', tags: ['market', 'gaps'], links: 3,
-      notes: [
-        'Raw capture layer. Nothing here is structured yet — that is deliberate.',
-        'Tracks what already exists so the offer is not a duplicate.',
-        'Reviewed weekly, pruned monthly.'
-      ]
-    },
-    offer: {
-      kicker: 'STRUCTURE NODE', tags: ['positioning', 'scope'], links: 3,
-      notes: [
-        'The promise, the scope, and the boundary of what the product does not cover.',
-        'Written before the product is built, revised after.',
-        'Connects Research to Product.'
-      ]
-    },
-    hooks: {
-      kicker: 'OUTPUT NODE', tags: ['content', 'angles'], links: 3,
-      notes: [
-        'Angle library. One line per idea, no drafts stored here.',
-        'Sourced from Audience language, rewritten for tension.',
-        'Feeds the Content Engine.'
-      ]
-    },
-    content: {
-      kicker: 'OUTPUT NODE', tags: ['pipeline', 'reels'], links: 4,
-      notes: [
-        'Where hooks become scripts and scripts become recorded assets.',
-        'Format decided before writing, not after.',
-        'Routes to Distribution once a draft is ready.'
-      ]
-    },
-    distribution: {
-      kicker: 'CHANNEL NODE', tags: ['reach', 'cadence'], links: 3,
-      notes: [
-        'Channel map and posting cadence. One asset, several cuts.',
-        'Nothing gets published that does not point back to Product.',
-        'Cadence is a constraint, not a target.'
-      ]
-    },
-    sales: {
-      kicker: 'SURFACE NODE', tags: ['storefront', 'copy'], links: 3,
-      notes: [
-        'Storefront copy, FAQ, and the checkout surface itself.',
-        'Mirrors the Offer node word for word — no new promises here.',
-        'Last node to be touched before launch.'
-      ]
-    }
-  };
-
-  const byId = {};
-  NODES.forEach(n => { byId[n.id] = n; });
-
-  const PRODUCT_CLUSTER = ['product', 'audience', 'offer', 'content', 'distribution'];
-
-  const svg     = $('#graph');
-  const gEdges  = $('#gEdges');
-  const gNodes  = $('#gNodes');
-  const gPulses = $('#gPulses');
-  const gZoom   = $('#gZoom');
+  /* ═══════════════ 3 · VAULT ═══════════════ */
+  const svg = $('#graph'), gEdges = $('#gEdges'), gNodes = $('#gNodes'),
+        gPulses = $('#gPulses'), gZoom = $('#gZoom');
   const NS = 'http://www.w3.org/2000/svg';
+  const byId = {}; V.NODES.forEach(n => { byId[n.id] = Object.assign({}, n); });
+  const CLUSTER = ['product', 'audience', 'offer', 'content', 'distribution'];
 
-  const edgeEls = [];
-  const nodeEls = {};
-  let graphBuilt = false;
+  const edgeEls = [], nodeEls = {};
+  let built = false;
 
   function buildGraph() {
-    if (graphBuilt) return;
-
-    EDGES.forEach(([a, b]) => {
+    if (built) return;
+    V.EDGES.forEach(([a, b]) => {
       const ln = document.createElementNS(NS, 'line');
-      ln.setAttribute('class', 'edge');
-      gEdges.appendChild(ln);
+      ln.setAttribute('class', 'edge'); gEdges.appendChild(ln);
       edgeEls.push({ el: ln, a, b });
     });
-
-    NODES.forEach(n => {
+    V.NODES.forEach(n => {
       const g = document.createElementNS(NS, 'g');
       g.setAttribute('class', 'node' + (n.hub ? ' hub' : ''));
-
       const halo = document.createElementNS(NS, 'circle');
-      halo.setAttribute('class', 'node-halo');
-      halo.setAttribute('r', n.r + (n.hub ? 26 : 16));
-
+      halo.setAttribute('class', 'node-halo'); halo.setAttribute('r', n.r + (n.hub ? 26 : 16));
       let ring = null;
-      if (n.hub) {
-        ring = document.createElementNS(NS, 'circle');
-        ring.setAttribute('class', 'node-ring');
-        ring.setAttribute('r', n.r + 9);
-      }
-
+      if (n.hub) { ring = document.createElementNS(NS, 'circle'); ring.setAttribute('class', 'node-ring'); ring.setAttribute('r', n.r + 9); }
       const core = document.createElementNS(NS, 'circle');
-      core.setAttribute('class', 'node-core');
-      core.setAttribute('r', n.r);
-
+      core.setAttribute('class', 'node-core'); core.setAttribute('r', n.r);
       const hit = document.createElementNS(NS, 'circle');
-      hit.setAttribute('r', n.r + 22);
-      hit.setAttribute('fill', 'transparent');
+      hit.setAttribute('r', n.r + 22); hit.setAttribute('fill', 'transparent');
+      const tx = document.createElementNS(NS, 'text'); tx.textContent = n.label;
+      const ct = document.createElementNS(NS, 'text'); ct.setAttribute('class', 'node-count');
 
-      const tx = document.createElementNS(NS, 'text');
-      tx.textContent = n.label;
-
-      g.appendChild(halo);
-      if (ring) g.appendChild(ring);
-      g.appendChild(core); g.appendChild(hit); g.appendChild(tx);
+      g.appendChild(halo); if (ring) g.appendChild(ring);
+      g.appendChild(core); g.appendChild(hit); g.appendChild(tx); g.appendChild(ct);
       g.addEventListener('click', () => selectNode(n.id));
       gNodes.appendChild(g);
-
-      nodeEls[n.id] = { g, halo, ring, core, hit, tx };
+      nodeEls[n.id] = { g, halo, ring, core, hit, tx, ct };
     });
-
-    graphBuilt = true;
+    built = true;
   }
 
-  let raf = null;
-  let t0 = 0;
+  /* each node carries its own weight: notes + linked ideas */
+  function renderGraphCounts() {
+    V.NODES.forEach(n => {
+      const c = V.derived.noteCount(n.id) + V.derived.ideasFor(n.id).length;
+      const e = nodeEls[n.id]; if (!e) return;
+      e.ct.textContent = c || '';
+      e.g.classList.toggle('empty', c === 0);
+    });
+  }
+
+  let raf = null, t0 = 0;
+  const pulses = []; let pulseTimer = null;
 
   function frame(ts) {
     if (!t0) t0 = ts;
     const t = (ts - t0) / 1000;
-
-    NODES.forEach((n, i) => {
-      // two out-of-phase sines per axis => organic, non-repeating-looking drift
-      n.cx = n.x + Math.sin(t * 0.26 + i * 1.7) * 11 + Math.sin(t * 0.13 + i * 0.6) * 6;
-      n.cy = n.y + Math.cos(t * 0.22 + i * 2.1) * 10 + Math.cos(t * 0.17 + i * 1.1) * 5;
-
+    V.NODES.forEach((n, i) => {
+      const b = byId[n.id];
+      b.cx = n.x + Math.sin(t * .26 + i * 1.7) * 11 + Math.sin(t * .13 + i * .6) * 6;
+      b.cy = n.y + Math.cos(t * .22 + i * 2.1) * 10 + Math.cos(t * .17 + i * 1.1) * 5;
       const e = nodeEls[n.id];
-      e.halo.setAttribute('cx', n.cx); e.halo.setAttribute('cy', n.cy);
-      if (e.ring) { e.ring.setAttribute('cx', n.cx); e.ring.setAttribute('cy', n.cy); }
-      e.core.setAttribute('cx', n.cx); e.core.setAttribute('cy', n.cy);
-      e.hit.setAttribute('cx', n.cx);  e.hit.setAttribute('cy', n.cy);
-      e.tx.setAttribute('x', n.cx);    e.tx.setAttribute('y', n.cy + n.r + 21);
+      e.halo.setAttribute('cx', b.cx); e.halo.setAttribute('cy', b.cy);
+      if (e.ring) { e.ring.setAttribute('cx', b.cx); e.ring.setAttribute('cy', b.cy); }
+      e.core.setAttribute('cx', b.cx); e.core.setAttribute('cy', b.cy);
+      e.hit.setAttribute('cx', b.cx);  e.hit.setAttribute('cy', b.cy);
+      e.tx.setAttribute('x', b.cx);    e.tx.setAttribute('y', b.cy + n.r + 21);
+      e.ct.setAttribute('x', b.cx);    e.ct.setAttribute('y', b.cy + 5);
     });
-
     edgeEls.forEach(e => {
       const a = byId[e.a], b = byId[e.b];
       e.el.setAttribute('x1', a.cx); e.el.setAttribute('y1', a.cy);
       e.el.setAttribute('x2', b.cx); e.el.setAttribute('y2', b.cy);
     });
-
-    // travelling pulses
     for (let i = pulses.length - 1; i >= 0; i--) {
-      const p = pulses[i];
-      p.k += p.speed;
+      const p = pulses[i]; p.k += p.speed;
       if (p.k >= 1) { p.el.remove(); pulses.splice(i, 1); continue; }
       const a = byId[p.a], b = byId[p.b];
       p.el.setAttribute('cx', a.cx + (b.cx - a.cx) * p.k);
       p.el.setAttribute('cy', a.cy + (b.cy - a.cy) * p.k);
-      p.el.setAttribute('opacity', Math.sin(p.k * Math.PI) * 0.95);
+      p.el.setAttribute('opacity', Math.sin(p.k * Math.PI) * .95);
     }
-
     raf = requestAnimationFrame(frame);
   }
 
-  const pulses = [];
-  let pulseTimer = null;
-
   function emitPulse() {
-    const e = EDGES[Math.floor(Math.random() * EDGES.length)];
+    const e = V.EDGES[Math.floor(Math.random() * V.EDGES.length)];
     const c = document.createElementNS(NS, 'circle');
-    c.setAttribute('class', 'pulse-dot');
-    c.setAttribute('r', 3.4);
+    c.setAttribute('class', 'pulse-dot'); c.setAttribute('r', 3.4);
     gPulses.appendChild(c);
-    pulses.push({ el: c, a: e[0], b: e[1], k: 0, speed: 0.0042 + Math.random() * 0.003 });
-
+    pulses.push({ el: c, a: e[0], b: e[1], k: 0, speed: .0042 + Math.random() * .003 });
     pulseTimer = setTimeout(emitPulse, 620 + Math.random() * 1100);
   }
 
   function startGraph() {
-    buildGraph();
-    t0 = 0;
+    buildGraph(); renderGraphCounts(); t0 = 0;
     if (!raf) raf = requestAnimationFrame(frame);
     if (!pulseTimer) pulseTimer = setTimeout(emitPulse, 500);
   }
-
   function stopGraph() {
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     if (pulseTimer) { clearTimeout(pulseTimer); pulseTimer = null; }
@@ -440,49 +362,78 @@
     closeNote();
   }
 
-  /* ── selection / notes / zoom ── */
-  const panel     = $('#notePanel');
-  const graphHint = $('.graph-hint');
+  /* ─── node panel: notes, linked content, deploy ─── */
+  const panel = $('#notePanel'), graphHint = $('.graph-hint');
   let selected = null;
 
   function selectNode(id) {
     if (selected === id) { closeNote(); return; }
     selected = id;
 
-    const cluster = (id === 'product')
-      ? PRODUCT_CLUSTER
-      : [id].concat(EDGES.filter(e => e.indexOf(id) > -1).map(e => (e[0] === id ? e[1] : e[0])));
+    const cluster = id === 'product' ? CLUSTER
+      : [id].concat(V.EDGES.filter(e => e.indexOf(id) > -1).map(e => e[0] === id ? e[1] : e[0]));
 
     Object.keys(nodeEls).forEach(k => {
       nodeEls[k].g.classList.toggle('sel', k === id);
       nodeEls[k].g.classList.toggle('faded', cluster.indexOf(k) === -1);
     });
-
     edgeEls.forEach(e => {
       const inC = cluster.indexOf(e.a) > -1 && cluster.indexOf(e.b) > -1;
-      const touching = e.a === id || e.b === id;
-      e.el.classList.toggle('lit', touching);
-      e.el.classList.toggle('dim', !inC && !touching);
+      const touch = e.a === id || e.b === id;
+      e.el.classList.toggle('lit', touch);
+      e.el.classList.toggle('dim', !inC && !touch);
     });
+    gZoom.setAttribute('transform', id === 'product'
+      ? 'translate(-272, -49.6) scale(1.16)' : 'translate(-212.5, -15.5) scale(1.05)');
 
-    // Zoom about the graph centre, then shift left so the note panel
-    // never covers a node. tx = cx*(1-s) + dx  (scale-about-a-point, pre-shifted).
-    if (id === 'product') {
-      gZoom.setAttribute('transform', 'translate(-272, -49.6) scale(1.16)');   // tighter zoom on the hub
-    } else {
-      gZoom.setAttribute('transform', 'translate(-212.5, -15.5) scale(1.05)');
-    }
-
-    const n = byId[id], d = NOTES[id];
-    $('#noteKicker').textContent = d.kicker;
-    $('#noteTitle').textContent  = n.label;
-    $('#noteTags').innerHTML     = d.tags.map(t => '<span class="note-tag">#' + t + '</span>').join('');
-    $('#noteList').innerHTML     = d.notes.map(t => '<li>' + t + '</li>').join('');
-    $('#noteLinks').textContent  = d.links + ' linked notes';
-
+    renderPanel();
     panel.classList.add('open');
     graphHint.classList.add('hidden');
   }
+
+  function renderPanel() {
+    if (!selected) return;
+    const n = V.node(selected), notes = V.get().notes[selected] || [];
+    const ideas = V.derived.ideasFor(selected), dep = V.derived.deployFor(selected);
+
+    $('#noteKicker').textContent = n.kind + ' NODE';
+    $('#noteTitle').textContent  = n.label;
+    $('#noteTags').innerHTML     = n.tags.map(t => `<span class="note-tag">#${t}</span>`).join('');
+    $('#noteCount').textContent  = notes.length;
+    $('#linkedCount').textContent = ideas.length;
+
+    $('#noteList').innerHTML = notes.length
+      ? notes.map(nt => `<li>${esc(nt.text)}<button class="note-del" data-note="${nt.id}" aria-label="Remove">×</button></li>`).join('')
+      : '<li class="muted">No notes yet.</li>';
+    $$('#noteList [data-note]').forEach(b =>
+      b.addEventListener('click', () => V.actions.removeNote(selected, b.dataset.note)));
+
+    $('#linkedIdeasSec').hidden = ideas.length === 0;
+    $('#linkedIdeas').innerHTML = ideas.map(i =>
+      `<button class="link-row" data-idea="${i.id}">
+         <span class="dot ${DOT[i.status]}"></span>
+         <span class="link-text">${esc(i.hook)}</span>
+       </button>`).join('');
+    $$('#linkedIdeas [data-idea]').forEach(b =>
+      b.addEventListener('click', () => focusIdea(b.dataset.idea)));
+
+    $('#linkedDeploySec').hidden = dep.length === 0;
+    $('#linkedDeploy').innerHTML = dep.map(d =>
+      `<button class="link-row" data-dep="${d.id}">
+         <span class="tick ${d.done ? 'on' : ''}"></span>
+         <span class="link-text">${esc(d.label)}</span>
+       </button>`).join('');
+    $$('#linkedDeploy [data-dep]').forEach(b =>
+      b.addEventListener('click', () => V.actions.toggleDeploy(b.dataset.dep)));
+  }
+
+  $('#noteForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = $('#noteInput').value.trim();
+    if (!v || !selected) return;
+    V.actions.addNote(selected, v);
+    $('#noteInput').value = '';
+  });
 
   function closeNote() {
     selected = null;
@@ -492,48 +443,230 @@
     Object.keys(nodeEls).forEach(k => nodeEls[k].g.classList.remove('sel', 'faded'));
     edgeEls.forEach(e => e.el.classList.remove('lit', 'dim'));
   }
-
   $('#noteClose').addEventListener('click', closeNote);
   svg.addEventListener('click', e => { if (e.target === svg) closeNote(); });
 
-  /* ══════════ PAGE 4 — deploy sequence ══════════ */
-  const steps   = $$('#pipeline .pl-step');
-  const links   = $$('#pipeline .pl-link');
-  const checks  = $$('#page-deploy .check');
-  const badge   = $('#deployStatus');
-  const badgeTx = $('#deployStatusText');
-  const cta     = $('#ctaBtn');
+  /* ─── cross-screen jumps ─── */
+  function openNode(id) { go('vault', { then: () => setTimeout(() => selectNode(id), 260) }); }
+  function focusIdea(id) {
+    go('content', { then: () => setTimeout(() => {
+      const el = $(`#ideaList [data-id="${id}"]`);
+      if (!el) return;
+      $$('#ideaList .idea').forEach(x => x.classList.remove('hot'));
+      el.classList.add('hot');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 280) });
+  }
 
-  function resetDeploy() {
-    clearTimers('deploy');
-    steps.forEach(s => s.classList.remove('on'));
-    links.forEach(l => l.classList.remove('on'));
-    checks.forEach(c => c.classList.remove('on'));
-    cta.classList.remove('armed');
-    badge.dataset.state = 'building';
-    badgeTx.textContent = 'BUILDING';
+  /* ═══════════════ 4 · DEPLOY ═══════════════ */
+  const PIPE = [
+    { key: 'idea',    label: 'Idea',         test: s => s.ideas.length > 0 },
+    { key: 'struct',  label: 'Structure',    test: () => V.derived.totalNotes() >= 5 },
+    { key: 'product', label: 'Product',      test: s => s.deploy.some(d => d.label === 'Product' && d.done) },
+    { key: 'store',   label: 'Storefront',   test: s => s.deploy.filter(d => /Landing|Checkout/.test(d.label)).every(d => d.done) },
+    { key: 'dist',    label: 'Distribution', test: s => s.deploy.some(d => d.label === 'Content' && d.done) }
+  ];
+
+  function renderDeploy() {
+    const s = V.get();
+    const on = PIPE.map(p => !!p.test(s));
+
+    $('#pipeline').innerHTML = PIPE.map((p, i) =>
+      `${i ? `<div class="pl-link" data-link="${i - 1}"><i></i></div>` : ''}
+       <div class="pl-step" data-step="${i}"><span class="pl-node"></span><span class="pl-label">${p.label}</span></div>`
+    ).join('');
+
+    $('#checkRow').innerHTML = s.deploy.map((d, i) =>
+      `<button class="check glass ${d.done ? 'on' : ''}" data-dep="${d.id}" style="--i:${i}">
+         <span class="check-mark"><svg viewBox="0 0 16 16"><path d="M3 8.4 6.3 11.6 13 5"/></svg></span>
+         <span class="check-name">${esc(d.label)}</span>
+       </button>`).join('');
+    $$('#checkRow [data-dep]').forEach(b =>
+      b.addEventListener('click', () => V.actions.toggleDeploy(b.dataset.dep)));
+
+    $('#urlField').value = s.product.url || '';
+    return on;
+  }
+
+  function setBadge(on) {
+    const badge = $('#deployStatus'), tx = $('#deployStatusText');
+    const live = V.derived.isLive();
+    const any  = on.some(Boolean);
+    badge.dataset.state = live ? 'live' : (any ? 'ready' : 'building');
+    tx.textContent      = live ? 'PRODUCT LIVE' : (any ? 'IN PROGRESS' : 'BUILDING');
+    $('#ctaBtn').classList.toggle('armed', live);
+  }
+
+  /* repaint without the entrance sequence — used when state changes
+     while the page is already open, which otherwise blanks the pipeline */
+  function paintDeploy(on) {
+    $$('#pipeline .pl-step').forEach((s, i) => s.classList.toggle('on', on[i]));
+    $$('#pipeline .pl-link').forEach((l, k) => l.classList.toggle('on', on[k] && on[k + 1]));
+    setBadge(on);
   }
 
   function startDeploy() {
-    resetDeploy();
+    clearTimers('deploy');
+    const on = renderDeploy();
+    const steps = $$('#pipeline .pl-step'), links = $$('#pipeline .pl-link'), checks = $$('#checkRow .check');
 
-    steps.forEach((s, i)  => later('deploy', () => s.classList.add('on'), 900 + i * 820));
-    links.forEach((l, i)  => later('deploy', () => l.classList.add('on'), 1240 + i * 820));
-    checks.forEach((c, i) => later('deploy', () => c.classList.add('on'), 1900 + i * 820));
+    steps.forEach(s => s.classList.remove('on'));
+    links.forEach(l => l.classList.remove('on'));
+    checks.forEach(c => c.classList.remove('on'));
+    $('#ctaBtn').classList.remove('armed');
+    $('#deployStatus').dataset.state = 'building';
+    $('#deployStatusText').textContent = 'BUILDING';
 
-    later('deploy', () => { badge.dataset.state = 'ready'; badgeTx.textContent = 'READY'; }, 4500);
-    later('deploy', () => { badge.dataset.state = 'live';  badgeTx.textContent = 'PRODUCT LIVE'; }, 5700);
-    later('deploy', () => cta.classList.add('armed'), 5700);
+    /* light up only as far as the real state goes */
+    let t = 700;
+    on.forEach((lit, i) => {
+      if (!lit) return;
+      later('deploy', () => steps[i].classList.add('on'), t);
+      if (i > 0 && on[i - 1]) later('deploy', () => links[i - 1].classList.add('on'), t - 300);
+      t += 760;
+    });
+
+    V.get().deploy.forEach((d, i) => {
+      if (d.done) later('deploy', () => checks[i] && checks[i].classList.add('on'), 1500 + i * 600);
+    });
+
+    later('deploy', () => setBadge(on), t + 300);
   }
 
-  $('#replayBtn').addEventListener('click', startDeploy);
-
-  cta.addEventListener('click', () => {
-    if (!cta.classList.contains('armed')) return;
-    cta.style.transform = 'translateY(1px) scale(.985)';
-    setTimeout(() => { cta.style.transform = ''; }, 170);
+  $('#urlField').addEventListener('change', e => V.actions.setProduct({ url: e.target.value.trim() }));
+  $('#ctaBtn').addEventListener('click', () => {
+    const u = V.get().product.url;
+    if (!V.derived.isLive()) return;
+    if (u) window.open(u, '_blank', 'noopener');
+    else $('#urlField').focus();
   });
 
+  /* ═══════════════ COMMAND PALETTE ═══════════════ */
+  const scrim = $('#paletteScrim'), pInput = $('#paletteInput'), pResults = $('#paletteResults');
+  let pItems = [], pSel = 0;
+
+  function buildItems() {
+    const s = V.get(), out = [];
+    ORDER.forEach(p => out.push({ grp: 'Page', label: TITLES[p], hint: 'Go to ' + TITLES[p], run: () => go(p) }));
+    V.NODES.forEach(n => out.push({
+      grp: 'Node', label: n.label,
+      hint: V.derived.noteCount(n.id) + ' notes · ' + V.derived.ideasFor(n.id).length + ' linked',
+      run: () => openNode(n.id)
+    }));
+    s.ideas.forEach(i => out.push({
+      grp: 'Idea', label: i.hook, hint: LABEL[i.status], run: () => focusIdea(i.id)
+    }));
+    out.push({ grp: 'Action', label: 'New idea', hint: 'Capture a hook', run: openComposer });
+    s.deploy.forEach(d => out.push({
+      grp: 'Action', label: (d.done ? 'Reopen ' : 'Complete ') + d.label,
+      hint: 'Deploy', run: () => V.actions.toggleDeploy(d.id)
+    }));
+    return out;
+  }
+
+  function renderPalette() {
+    const q = pInput.value.trim().toLowerCase();
+    const all = buildItems();
+    pItems = q ? all.filter(i => (i.label + ' ' + i.grp).toLowerCase().includes(q)) : all;
+    pSel = 0;
+    pResults.innerHTML = pItems.length
+      ? pItems.map((i, k) => `
+          <button class="pal-row ${k === 0 ? 'sel' : ''}" data-k="${k}">
+            <span class="pal-grp mono">${i.grp}</span>
+            <span class="pal-label">${esc(i.label)}</span>
+            <span class="pal-hint mono">${esc(i.hint)}</span>
+          </button>`).join('')
+      : '<div class="pal-none">No matches</div>';
+    $('#paletteCountLab').textContent = pItems.length + ' result' + (pItems.length === 1 ? '' : 's');
+    $$('.pal-row', pResults).forEach(b =>
+      b.addEventListener('click', () => runPalette(parseInt(b.dataset.k, 10))));
+  }
+
+  function movePalette(d) {
+    if (!pItems.length) return;
+    pSel = (pSel + d + pItems.length) % pItems.length;
+    $$('.pal-row', pResults).forEach((b, k) => b.classList.toggle('sel', k === pSel));
+    const el = $$('.pal-row', pResults)[pSel];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+  function runPalette(k) {
+    const it = pItems[k == null ? pSel : k];
+    closePalette();
+    if (it) setTimeout(it.run, 60);
+  }
+  function openPalette() {
+    scrim.hidden = false; requestAnimationFrame(() => scrim.classList.add('in'));
+    pInput.value = ''; renderPalette(); pInput.focus();
+  }
+  function closePalette() {
+    scrim.classList.remove('in');
+    setTimeout(() => { scrim.hidden = true; }, 200);
+  }
+
+  pInput.addEventListener('input', renderPalette);
+  scrim.addEventListener('mousedown', e => { if (e.target === scrim) closePalette(); });
+  $('#paletteCue').addEventListener('click', openPalette);
+
+  /* ═══════════════ SHORTCUTS ═══════════════ */
+  document.addEventListener('keydown', e => {
+    const open = !scrim.hidden;
+
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); open ? closePalette() : openPalette(); return;
+    }
+    if (open) {
+      if (e.key === 'Escape')    { e.preventDefault(); closePalette(); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); movePalette(1); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); movePalette(-1); }
+      if (e.key === 'Enter')     { e.preventDefault(); runPalette(); }
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if (e.key === 'Escape') {
+      if (!composer.hidden) { closeComposer(); return; }
+      closeNote(); return;
+    }
+    if (typing(e.target)) return;
+
+    const i = ['1', '2', '3', '4'].indexOf(e.key);
+    if (i > -1) {
+      e.preventDefault();
+      const btn = $$('.nav-item')[i];
+      btn.classList.remove('keyed'); void btn.offsetWidth; btn.classList.add('keyed');
+      setTimeout(() => btn.classList.remove('keyed'), 460);
+      go(ORDER[i]); return;
+    }
+    if (e.key.toLowerCase() === 'n') { e.preventDefault(); openComposer(); }
+  });
+
+  /* ═══════════════ GLOBAL RENDER ═══════════════ */
+  function renderChrome() {
+    const s = V.get(), d = V.derived;
+    $('#navCountContent').textContent = s.ideas.length;
+    $('#navCountVault').textContent   = d.totalNotes();
+    $('#navCountDeploy').textContent  = d.deployDone() + '/' + s.deploy.length;
+    $('#brandName').textContent       = (s.product.name || 'ASSETVAULT').toUpperCase();
+
+    const live = d.isLive();
+    const pill = $('#stagePill');
+    pill.dataset.state = live ? 'live' : 'building';
+    $('#stageText').textContent = live ? 'LIVE' : 'BUILDING';
+    $('#storageState').textContent = V.storageOK() ? 'SAVED LOCALLY' : 'SESSION ONLY';
+  }
+
+  function renderAll() {
+    renderChrome();
+    renderCommand();
+    renderContent();
+    if (built) renderGraphCounts();
+    if (selected) renderPanel();
+    if (current === 'deploy') paintDeploy(renderDeploy());
+  }
+
+  V.subscribe(() => { renderAll(); syncLog(); });
+
   /* ─────────── boot ─────────── */
+  renderAll();
   go('command');
 })();

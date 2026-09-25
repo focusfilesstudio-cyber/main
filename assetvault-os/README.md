@@ -1,22 +1,46 @@
 # AssetVault OS
 
-Local-only visual dashboard for recording B-roll. Not a product, not a service —
-four static screens that look like an operator console.
+A local, single-file-stack workspace for turning knowledge into a product.
+Four connected screens over one shared store. No backend, no accounts, no network.
 
 ## Run it
 
-Either way works, no install:
+Either way, no install:
 
-1. **Double-click `index.html`** — opens straight in your browser.
-2. **Or serve it** (nicer URL on camera):
-   ```
-   cd assetvault-os
-   python3 -m http.server 3000
-   ```
-   Then open http://localhost:3000
+1. **Double-click `index.html`**, or
+2. `python3 -m http.server 3000` in this folder, then open http://localhost:3000
 
-## Screens
+## How it's connected
 
-`1` Command · `2` Content · `3` Vault · `4` Deploy — press the number keys to switch.
+Everything reads from one store (`store.js`), so nothing is a static mock:
 
-No dependencies, no build step, no network calls. Everything animates offline.
+- Capture an idea on **Content** → the Content count, the Command Center's
+  `CONTENT READY`, the linked node's weight in the **Vault** graph and the
+  activity stream all move at once.
+- Add a note on a **Vault** node → the Vault count and the matching workflow
+  row on **Command** move.
+- Tick an item on **Deploy** → the pipeline, the status badge, the top-bar
+  stage and `Build product` on Command all follow.
+- Every node panel lists the content linked to it; clicking through jumps to
+  that idea, and the node chip on an idea jumps back to the graph.
+
+State is written to `localStorage`, so it survives a reload. If storage is
+blocked (Safari does this on `file://`) it runs in memory for the session and
+the sidebar says `SESSION ONLY` instead of `SAVED LOCALLY`.
+
+## Keys
+
+| Key | Action |
+| --- | --- |
+| `1` `2` `3` `4` | Command · Content · Vault · Deploy |
+| `⌘K` / `Ctrl+K` | Command palette — search nodes, ideas, pages, actions |
+| `N` | New idea |
+| `Esc` | Close palette, composer or node panel |
+
+Number keys and `N` are ignored while you're typing in a field.
+
+## Notes
+
+- Nothing here reports revenue, customers or sales. Counts are of your own
+  notes, ideas and checklist items.
+- `localStorage.clear()` in the console resets to the seeded vault.
